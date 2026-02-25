@@ -1,9 +1,9 @@
-use axum::{ routing::post, Router };
+use axum::{ routing::get, Router };
 use sqlx::postgres::PgPoolOptions;
-use std::env::{self, VarError};
+use std::{env::{self, VarError}};
 use anyhow::Context;
 
-use md_backend::*;
+use md_backend::{repositories::Registry, *};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -16,12 +16,17 @@ async fn main() -> anyhow::Result<()> {
     let pool = PgPoolOptions::new()
         .connect(&db_url).await
         .context("Failed to connect to DB.")?;
+    
+    let state = AppState {
+        repo: Registry::new(pool)
+    };
 
     axum::serve(
         tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap(),
         Router::new()
-            .route("/filters", post(handlers::query))
-            .with_state(pool)
+            .route("/organizer/options", get(handlers::organizers::get_options))
+            .route("/competitions/options", get(handlers::competitions::get_options))
+            .with_state(state)
     ).await?;
 
     Ok(())
