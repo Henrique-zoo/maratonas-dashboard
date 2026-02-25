@@ -17,6 +17,11 @@ async fn main() -> anyhow::Result<()> {
         .connect(&db_url).await
         .context("Failed to connect to DB.")?;
     
+    sqlx::migrate!()
+        .run(&pool)
+        .await
+        .expect("Migrations failed");
+
     let state = AppState {
         repo: Registry::new(pool)
     };
@@ -26,6 +31,8 @@ async fn main() -> anyhow::Result<()> {
         Router::new()
             .route("/organizer/options", get(handlers::organizers::get_options))
             .route("/competitions/options", get(handlers::competitions::get_options))
+            .route("/institutions/options", get(handlers::institutions::get_options))
+            .route("/teams/options", get(handlers::teams::get_options))
             .with_state(state)
     ).await?;
 

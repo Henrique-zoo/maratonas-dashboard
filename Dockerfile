@@ -1,5 +1,5 @@
 # ── Estágio 1: build ──────────────────────────────────────────────────────────
-FROM rust:1.84-slim-bookworm AS builder
+FROM rust:1.91 AS builder
 
 WORKDIR /app
 
