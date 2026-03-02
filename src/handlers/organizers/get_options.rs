@@ -1,17 +1,12 @@
-use axum::{Json, extract::State};
+use axum::{Json, debug_handler, extract::State, response::IntoResponse};
 
-use crate::{AppState, dtos::filters::output::FilterDto, errors::AppResult, repositories::OrganizerRepository};
+use crate::{AppState, services};
 
+#[debug_handler]
 pub async fn get_options(
     State(state): State<AppState>
-) -> AppResult<Json<Vec<FilterDto>>> {
-    let repo: &dyn OrganizerRepository = &state.repo;
-    let rows = repo
-        .find_options()
-        .await?
-        .into_iter()
-        .map(FilterDto::from)
-        .collect();
-
-    Ok(Json(rows))
+) -> impl IntoResponse {
+    services::organizers::get_options(&state.repo)
+        .await
+        .map(|options| Json(options))
 }

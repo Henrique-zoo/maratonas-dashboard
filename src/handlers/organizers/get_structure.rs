@@ -1,16 +1,15 @@
-use axum::{Json, debug_handler, extract::{Query, State}, response::IntoResponse};
+use axum::{Json, extract::{Query, State}, response::IntoResponse};
 
 use crate::{AppState, dtos::filters::input::CompetitionOptionsQuery, services};
 
-#[debug_handler]
-pub async fn get_options(
+pub async fn get_structure(
     State(state): State<AppState>,
     Query(filter): Query<CompetitionOptionsQuery>
 ) -> impl IntoResponse {
-    services::competitions::get_option(
+    services::organizers::get_structure(
         &state.repo,
         filter.organizer_ids
     )
         .await
-        .map(|options| Json(options))
+        .map(|structure| Json(structure))
 }

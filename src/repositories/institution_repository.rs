@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use crate::{errors::AppResult, repositories::{types::IdNameRow, Registry}};
 
 #[async_trait]
-pub trait InstitutionRepository {
-    async fn find_option_by_competitions(
+pub trait InstitutionRepository: Send + Sync {
+    async fn find_options_by_competitions(
         &self,
         competition_ids: Option<Vec<i32>>
     ) -> AppResult<Vec<IdNameRow>>;
@@ -12,14 +12,15 @@ pub trait InstitutionRepository {
 
 #[async_trait]
 impl InstitutionRepository for Registry {
-    async fn find_option_by_competitions(
+    async fn find_options_by_competitions(
         &self,
         competition_ids: Option<Vec<i32>>
     ) -> AppResult<Vec<IdNameRow>> {
         let rows = if let Some(ids) = competition_ids{
             sqlx::query_as(
                 "SELECT DISTINTC
-                    i.id, i.name
+                    i.id    AS  id,
+                    i.name  AS  name
                 FROM institution i
                 JOIN team t
                     ON t.institution_id = i.id

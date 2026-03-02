@@ -853,9 +853,11 @@ dependencies = [
  "async-trait",
  "axum",
  "chrono",
+ "dotenvy",
  "serde",
  "serde_json",
  "sqlx",
+ "thiserror",
  "tokio",
 ]
 

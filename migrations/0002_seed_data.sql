@@ -24,14 +24,17 @@ UPDATE location SET parent_id = 3 WHERE id = 4;
 -- =========================
 
 INSERT INTO competition (organizer_id, name, gender_category, website_url)
-VALUES (1, 'ICPC Latin America', 'Open', 'https://latam.icpc.global');
+VALUES (1, 'ICPC GLOBAL', 'Open', 'https://icpc.global/');
 
 -- =========================
 -- EVENT
 -- =========================
 
-INSERT INTO event (competition_id, location_id, name, date)
-VALUES (1, 4, 'ICPC Brazil Finals', '2024-10-10');
+INSERT INTO event (competition_id, location_id, name, level, date)
+VALUES (1, 4, 'ICPC Latin America', 2, '2024-6-17');
+
+INSERT INTO event (competition_id, location_id, name, level, date)
+VALUES (1, 4, 'ICPC Brazil Finals', 1, '2024-10-10');
 
 -- =========================
 -- INSTITUTION

@@ -58,6 +58,7 @@ CREATE TABLE event (
   competition_id INT NOT NULL REFERENCES competition(id),
   location_id INT NOT NULL REFERENCES location(id),
   name VARCHAR NOT NULL,
+  level INT,
   date DATE NOT NULL,
   UNIQUE (competition_id, name, date)
 );

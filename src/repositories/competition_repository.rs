@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use crate::{errors::AppResult, repositories::{types::IdNameRow, Registry}};
 
 #[async_trait]
-pub trait CompetitionRepository {
-    async fn find_option_by_organizers(
+pub trait CompetitionRepository: Send + Sync {
+    async fn find_options_by_organizers(
         &self,
         organizer_ids: Option<Vec<i32>>
     ) -> AppResult<Vec<IdNameRow>>;
@@ -12,7 +12,7 @@ pub trait CompetitionRepository {
 
 #[async_trait]
 impl CompetitionRepository for Registry {
-    async fn find_option_by_organizers(
+    async fn find_options_by_organizers(
         &self,
         organizer_ids: Option<Vec<i32>>
     ) -> AppResult<Vec<IdNameRow>> {

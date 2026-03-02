@@ -20,6 +20,7 @@ RUN rm -f target/release/deps/md_backend*
 # Agora copia o código real e compila de verdade
 # Apenas o código do projeto será compilado, pois o Cargo verificará os timestamps dos artefatos e perceberá que as dependências já estão compiladas e atualizadas
 COPY src ./src
+COPY migrations ./migrations
 RUN cargo build --release
 
 # ── Estágio 2: runtime ────────────────────────────────────────────────────────
