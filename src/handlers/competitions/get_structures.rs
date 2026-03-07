@@ -6,7 +6,7 @@ pub async fn get_structures(
     State(state): State<AppState>,
     Query(filter): Query<InstitutionOptionsQuery>
 ) -> impl IntoResponse {
-    services::competitions::get_structures(&state.repo, filter.competition_ids)
+    services::competitions::get_structures(&state.repo, filter.competition_ids.into_inner())
         .await
         .map(|structures| Json(structures))
 }

@@ -45,7 +45,7 @@ impl InstitutionRepository for Registry {
             sqlx::query_as(
                 "SELECT
                     id, name
-                FROM institutions
+                FROM institution
                 ORDER BY name"
             )
             .fetch_all(&self.pool)
@@ -60,7 +60,13 @@ impl InstitutionRepository for Registry {
         institution_ids: Vec<i32>
     ) -> AppResult<Vec<InstitutionStructureRow>> {
         let rows = sqlx::query_as(
-            ""
+            "SELECT
+                i.id AS institution_id
+                i.name AS institution_name
+                t.id AS team_id
+                t.name AS team_name
+                
+                COUNT(*) FILTER"
         )
         .bind(institution_ids)
         .fetch_all(&self.pool)

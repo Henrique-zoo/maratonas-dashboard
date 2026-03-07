@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::shared::GenderCategory;
+use crate::shared::types::GenderCategory;
 
 #[derive(Debug, Serialize)]
 pub struct OrganizerStructure {
@@ -8,12 +8,6 @@ pub struct OrganizerStructure {
     pub name: String,
     pub website_url: String,
     pub competitions: Vec<CompetitionSubStructure>
-}
-
-impl OrganizerStructure {
-    pub fn new(id: i32, name: String, website_url: String) -> Self {
-        Self { id, name, website_url, competitions: Vec::new() }
-    }
 }
 
 #[derive(Debug, Serialize)]
@@ -25,16 +19,22 @@ pub struct CompetitionSubStructure {
     pub events: Vec<EventSubStructure>
 }
 
-impl CompetitionSubStructure {
-    pub fn new(id: i32, name: String, website_url: String, gender_category: GenderCategory, events: Vec<EventSubStructure>) -> Self {
-        Self { id, name, website_url, gender_category, events }
-    }
-}
-
 #[derive(Debug, Serialize)]
 pub struct EventSubStructure {
     pub id: i32,
     pub name: String
+}
+
+impl OrganizerStructure {
+    pub fn new(id: i32, name: String, website_url: String) -> Self {
+        Self { id, name, website_url, competitions: Vec::new() }
+    }
+}
+
+impl CompetitionSubStructure {
+    pub fn new(id: i32, name: String, website_url: String, gender_category: GenderCategory, events: Vec<EventSubStructure>) -> Self {
+        Self { id, name, website_url, gender_category, events }
+    }
 }
 
 impl EventSubStructure {

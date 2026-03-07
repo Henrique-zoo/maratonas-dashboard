@@ -1,6 +1,6 @@
 use sqlx::FromRow;
 
-use crate::shared::GenderCategory;
+use crate::shared::types::GenderCategory;
 
 #[derive(FromRow)]
 pub struct OrganizerStructureRow {

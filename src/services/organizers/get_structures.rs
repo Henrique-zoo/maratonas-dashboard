@@ -7,7 +7,7 @@ pub async fn get_structures(
     organizer_ids: Option<Vec<i32>>
 ) -> AppResult<Vec<OrganizerStructure>> {
     let organizer_ids = organizer_ids
-        .ok_or_else(|| AppError::BadRequest("You need to chose at least one organizer.".to_string()))?;
+        .ok_or_else(|| AppError::BadRequest("You need to choose at least one organizer.".to_string()))?;
 
     let organizer_structures = repo
         .find_structures_by_ids(organizer_ids)
@@ -56,7 +56,7 @@ mod tests {
     use super::*;
     use crate::repositories::MockOrganizerRepository;
     use crate::repositories::types::organizers::OrganizerStructureRow;
-    use crate::shared::GenderCategory;
+    use crate::shared::types::GenderCategory;
 
     #[tokio::test]
     async fn get_structure_returns_error_when_no_organizers_selected() {

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use sqlx::{Postgres, QueryBuilder};
 
-use crate::{errors::AppResult, repositories::{types::IdNameRow, Registry}};
+use crate::{errors::AppResult, repositories::{types::{IdNameRow, teams::TeamStructureRow}, Registry}};
 
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
@@ -11,6 +11,10 @@ pub trait TeamRepository: Send + Sync {
         competition_ids: Option<Vec<i32>>,
         institution_ids: Option<Vec<i32>>
     ) -> AppResult<Vec<IdNameRow>>;
+    async fn find_structures_by_ids(
+        &self,
+        team_ids: Vec<i32>
+    ) -> AppResult<Vec<TeamStructureRow>>;
 }
 
 #[async_trait]
@@ -53,6 +57,20 @@ impl TeamRepository for Registry {
         let rows = builder
             .build_query_as()
             .fetch_all(&self.pool).await?;
+
+        Ok(rows)
+    }
+
+    async fn find_structures_by_ids(
+        &self,
+        team_ids: Vec<i32>
+    ) -> AppResult<Vec<TeamStructureRow>> {
+        let rows = sqlx::query_as(
+            "-- TODO"
+        )
+            .bind(team_ids)
+            .fetch_all(&self.pool)
+            .await?;
 
         Ok(rows)
     }

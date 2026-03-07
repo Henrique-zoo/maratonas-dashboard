@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::shared::LocationType;
+use crate::shared::types::LocationType;
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Location {

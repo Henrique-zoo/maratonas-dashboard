@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use chrono::NaiveDateTime;
-use crate::shared::Status;
+use crate::shared::types::Status;
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Submission {

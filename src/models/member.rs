@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::shared::{Gender, Role};
+use crate::shared::types::{Gender, Role};
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Member {

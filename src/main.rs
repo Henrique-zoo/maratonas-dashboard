@@ -28,10 +28,12 @@ async fn main() -> anyhow::Result<()> {
     axum::serve(
         tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap(),
         Router::new()
-            .route("/organizer/options", get(handlers::organizers::get_options))
+            .route("/organizers/options", get(handlers::organizers::get_options))
             .route("/competitions/options", get(handlers::competitions::get_options))
             .route("/institutions/options", get(handlers::institutions::get_options))
             .route("/teams/options", get(handlers::teams::get_options))
+            .route("/organizers/structures", get(handlers::organizers::get_structures))
+            .route("/competitions/structures", get(handlers::competitions::get_structures))
             .with_state(state)
     ).await?;
 

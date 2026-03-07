@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::shared::GenderCategory;
+use crate::shared::types::GenderCategory;
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Competition {

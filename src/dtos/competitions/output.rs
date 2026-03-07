@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
 use serde::Serialize;
 
-use crate::shared::GenderCategory;
+use crate::shared::types::GenderCategory;
 
 #[derive(Debug, Serialize)]
 pub struct CompetitionStructure {
@@ -10,12 +10,6 @@ pub struct CompetitionStructure {
     pub website_url: Option<String>,
     pub gender_category: GenderCategory,
     pub events: Vec<EventSubStructure>
-}
-
-impl CompetitionStructure {
-    pub fn new(id: i32, name: String, website_url: Option<String>, gender_category: GenderCategory) -> Self {
-        Self { id, name, website_url, gender_category, events: Vec::new() }
-    }
 }
 
 #[derive(Debug, Serialize)]
@@ -28,6 +22,20 @@ pub struct EventSubStructure {
     pub total_participants: i32,
     pub female_percentage: f32,
     pub teams: Vec<TeamSubStructure>
+}
+
+#[derive(Debug, Serialize)]
+pub struct TeamSubStructure {
+    pub id: i32,
+    pub name: String,
+    pub total_members: i32,
+    pub female_percentage: f32
+}
+
+impl CompetitionStructure {
+    pub fn new(id: i32, name: String, website_url: Option<String>, gender_category: GenderCategory) -> Self {
+        Self { id, name, website_url, gender_category, events: Vec::new() }
+    }
 }
 
 impl EventSubStructure {
@@ -43,14 +51,6 @@ impl EventSubStructure {
             teams
         }
     }
-}
-
-#[derive(Debug, Serialize)]
-pub struct TeamSubStructure {
-    pub id: i32,
-    pub name: String,
-    pub total_members: i32,
-    pub female_percentage: f32
 }
 
 impl TeamSubStructure {

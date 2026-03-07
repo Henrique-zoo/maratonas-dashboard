@@ -7,7 +7,7 @@ pub async fn get_structures(
     competition_ids: Option<Vec<i32>>
 ) -> AppResult<Vec<CompetitionStructure>> {
     let competition_ids = competition_ids
-        .ok_or_else(|| AppError::BadRequest("You need to chose at least one competition.".to_string()))?;
+        .ok_or_else(|| AppError::BadRequest("You need to choose at least one competition.".to_string()))?;
 
     let competition_structures = repo.find_structures_by_ids(competition_ids)
         .await?
@@ -63,7 +63,7 @@ pub async fn get_structures(
 
 #[cfg(test)]
 mod tests {
-    use crate::{repositories::{MockCompetitionRepository, types::competitions::CompetitionStructureRow}, shared::GenderCategory};
+    use crate::{repositories::{MockCompetitionRepository, types::competitions::CompetitionStructureRow}, shared::types::GenderCategory};
 
     use super::*;
     use chrono::NaiveDate;

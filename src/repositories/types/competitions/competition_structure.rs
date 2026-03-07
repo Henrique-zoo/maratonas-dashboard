@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
 use sqlx::prelude::FromRow;
 
-use crate::shared::GenderCategory;
+use crate::shared::types::GenderCategory;
 
 #[derive(FromRow)]
 pub struct CompetitionStructureRow {
