@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use serde::Serialize;
 
-// ======================== Main DTOs ========================
+// ======================== Response DTOs ========================
 #[derive(Serialize, Debug)]
 pub struct InstitutionStructure {
     pub id: i32,
@@ -18,6 +18,8 @@ pub struct CompetitionSubStructure {
     pub id: i32,
     pub name: String,
     pub website_url: Option<String>,
+    pub total_teams: u32,
+    pub total_participants: u32,
     pub events: Vec<EventSubStructure>,
 }
 
@@ -25,6 +27,8 @@ pub struct CompetitionSubStructure {
 pub struct EventSubStructure {
     pub id: i32,
     pub name: String,
+    pub total_teams: u32,
+    pub total_participants: u32,
     pub teams: Vec<TeamSubStructure>,
 }
 
@@ -37,7 +41,9 @@ pub struct TeamSubStructure {
     pub female_percentage: f32,
 }
 
-// ======================== Assistant Structs ========================
+// ======================== Intermediate structures ========================
+// Used while aggregating institution -> competitions -> events -> teams
+// before converting to the final serializable payload.
 #[derive(Debug)]
 pub struct TempInstitutionStructure {
     pub id: i32,
@@ -45,7 +51,7 @@ pub struct TempInstitutionStructure {
     pub total_teams: u32,
     pub total_contestants: u32,
     pub female_percentage: f32,
-    pub competitions: HashMap<i32, TempCompetitionSubStructure>,
+    pub competitions: IndexMap<i32, TempCompetitionSubStructure>,
 }
 
 #[derive(Debug)]
@@ -53,18 +59,21 @@ pub struct TempCompetitionSubStructure {
     pub id: i32,
     pub name: String,
     pub website_url: Option<String>,
-    pub events: HashMap<i32, TempEventSubStructure>,
+    pub total_teams: u32,
+    pub total_participants: u32,
+    pub events: IndexMap<i32, TempEventSubStructure>,
 }
 
 #[derive(Debug)]
 pub struct TempEventSubStructure {
     pub id: i32,
     pub name: String,
-    pub teams: HashMap<i32, TeamSubStructure>,
+    pub total_teams: u32,
+    pub total_participants: u32,
+    pub teams: IndexMap<i32, TeamSubStructure>,
 }
 
-// ======================== From trait ========================
-
+// ======================== Conversion to final DTO ========================
 impl From<TempInstitutionStructure> for InstitutionStructure {
     fn from(value: TempInstitutionStructure) -> Self {
         Self {
@@ -90,6 +99,8 @@ impl From<TempCompetitionSubStructure> for CompetitionSubStructure {
             id: value.id,
             name: value.name,
             website_url: value.website_url,
+            total_teams: value.total_teams,
+            total_participants: value.total_participants,
             events: {
                 value
                     .events
@@ -106,13 +117,14 @@ impl From<TempEventSubStructure> for EventSubStructure {
         Self {
             id: value.id,
             name: value.name,
+            total_teams: value.total_teams,
+            total_participants: value.total_participants,
             teams: { value.teams.into_values().collect() },
         }
     }
 }
 
-// ======================== new() constructors ========================
-
+// ======================== Helper constructors ========================
 impl TempInstitutionStructure {
     pub fn new(
         id: i32,
@@ -120,7 +132,7 @@ impl TempInstitutionStructure {
         total_teams: i32,
         total_contestants: i32,
         female_contestants: i32,
-        competitions: HashMap<i32, TempCompetitionSubStructure>,
+        competitions: IndexMap<i32, TempCompetitionSubStructure>,
     ) -> Self {
         Self {
             id,
@@ -138,20 +150,36 @@ impl TempCompetitionSubStructure {
         id: i32,
         name: String,
         website_url: Option<String>,
-        events: HashMap<i32, TempEventSubStructure>,
+        total_teams: i32,
+        total_participants: i32,
+        events: IndexMap<i32, TempEventSubStructure>,
     ) -> Self {
         Self {
             id,
             name,
             website_url,
+            total_teams: total_teams as u32,
+            total_participants: total_participants as u32,
             events,
         }
     }
 }
 
 impl TempEventSubStructure {
-    pub fn new(id: i32, name: String, teams: HashMap<i32, TeamSubStructure>) -> Self {
-        Self { id, name, teams }
+    pub fn new(
+        id: i32,
+        name: String,
+        total_teams: i32,
+        total_participants: i32,
+        teams: IndexMap<i32, TeamSubStructure>,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            total_teams: total_teams as u32,
+            total_participants: total_participants as u32,
+            teams,
+        }
     }
 }
 

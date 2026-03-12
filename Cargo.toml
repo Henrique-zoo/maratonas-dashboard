@@ -16,6 +16,7 @@ chrono = { version = "0.4", features = ["serde"] }
 async-trait = "0.1.89"
 dotenvy = "0.15"
 thiserror = "2.0.18"
+indexmap = "2"
 
 [dev-dependencies]
 mockall = "0.12"

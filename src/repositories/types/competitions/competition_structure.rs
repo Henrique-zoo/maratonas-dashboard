@@ -27,7 +27,7 @@ pub struct CompetitionStructureRow {
     pub institution_name: String,
     pub institution_short_name: Option<String>,
     pub institution_location: String,
-    pub intitution_location_type: LocationType,
+    pub institution_location_type: LocationType,
 
     pub team_id: i32,
     pub team_name: String,

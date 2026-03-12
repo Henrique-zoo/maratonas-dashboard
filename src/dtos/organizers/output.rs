@@ -1,9 +1,9 @@
+use indexmap::IndexMap;
 use serde::Serialize;
-use std::collections::HashMap;
 
 use crate::shared::types::GenderCategory;
 
-// ======================== Main DTOs ========================
+// ======================== Response DTOs ========================
 #[derive(Debug, Serialize)]
 pub struct OrganizerStructure {
     pub id: i32,
@@ -33,13 +33,15 @@ pub struct EventSubStructure {
     pub female_percentage: f32,
 }
 
-// ======================== Temporary Structs ========================
+// ======================== Intermediate structures ========================
+// Used while aggregating organizer -> competitions -> events
+// before converting to the final serializable payload.
 #[derive(Debug)]
 pub struct TempOrganizerStructure {
     pub id: i32,
     pub name: String,
     pub website_url: String,
-    pub competitions: HashMap<i32, TempCompetitionSubStructure>,
+    pub competitions: IndexMap<i32, TempCompetitionSubStructure>,
 }
 
 #[derive(Debug)]
@@ -51,11 +53,10 @@ pub struct TempCompetitionSubStructure {
     pub total_teams: i32,
     pub total_participants: i32,
     pub female_percentage: f32,
-    pub events: HashMap<i32, EventSubStructure>,
+    pub events: IndexMap<i32, EventSubStructure>,
 }
 
-// ======================== From trait ========================
-
+// ======================== Conversion to final DTO ========================
 impl From<TempOrganizerStructure> for OrganizerStructure {
     fn from(value: TempOrganizerStructure) -> Self {
         Self {
@@ -86,14 +87,13 @@ impl From<TempCompetitionSubStructure> for CompetitionSubStructure {
     }
 }
 
-// ======================== new() constructors ========================
-
+// ======================== Helper constructors ========================
 impl TempOrganizerStructure {
     pub fn new(
         id: i32,
         name: String,
         website_url: String,
-        competitions: HashMap<i32, TempCompetitionSubStructure>,
+        competitions: IndexMap<i32, TempCompetitionSubStructure>,
     ) -> Self {
         Self {
             id,
@@ -113,7 +113,7 @@ impl TempCompetitionSubStructure {
         total_teams: i32,
         total_participants: i32,
         female_participants: i32,
-        events: HashMap<i32, EventSubStructure>,
+        events: IndexMap<i32, EventSubStructure>,
     ) -> Self {
         Self {
             id,

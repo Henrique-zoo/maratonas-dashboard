@@ -9,5 +9,4 @@ pub struct TeamStructureRow {
     pub event_id: i32,
     pub event_name: String,
     pub event_total_participants: i32,
-    
 }

@@ -1,10 +1,11 @@
 use chrono::NaiveDate;
+use indexmap::IndexMap;
 use serde::Serialize;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 use crate::shared::types::{GenderCategory, LocationType};
 
-// ======================== Main DTOs ========================
+// ======================== Response DTOs ========================
 #[derive(Debug, Serialize)]
 pub struct CompetitionStructure {
     pub id: i32,
@@ -44,7 +45,9 @@ pub struct TeamSubStructure {
     pub female_percentage: f32,
 }
 
-// ======================== Temporary Structs ========================
+// ======================== Intermediate structures ========================
+// Used while aggregating data (competition -> events -> teams)
+// before converting to the final serializable payload.
 #[derive(Debug)]
 pub struct TempCompetitionStructure {
     pub id: i32,
@@ -55,7 +58,7 @@ pub struct TempCompetitionStructure {
     pub total_teams: u32,
     pub total_participants: u32,
     pub female_percentage: f32,
-    pub events: HashMap<i32, TempEventSubStructure>,
+    pub events: IndexMap<i32, TempEventSubStructure>,
 }
 
 #[derive(Debug)]
@@ -69,11 +72,10 @@ pub struct TempEventSubStructure {
     pub total_teams: u32,
     pub total_participants: u32,
     pub female_percentage: f32,
-    pub teams: HashMap<i32, TeamSubStructure>,
+    pub teams: IndexMap<i32, TeamSubStructure>,
 }
 
-// ======================== From trait ========================
-
+// ======================== Conversion to final DTO ========================
 impl From<TempCompetitionStructure> for CompetitionStructure {
     fn from(value: TempCompetitionStructure) -> Self {
         Self {
@@ -111,25 +113,25 @@ impl From<TempEventSubStructure> for EventSubStructure {
     }
 }
 
-// ======================== new() constructors ========================
-
+// ======================== Helper constructors ========================
 impl TempCompetitionStructure {
     pub fn new(
         id: i32,
         name: String,
         website_url: Option<String>,
         gender_category: GenderCategory,
+        location_types: BTreeSet<LocationType>,
         total_teams: i32,
         total_participants: i32,
         female_participants: i32,
-        events: HashMap<i32, TempEventSubStructure>,
+        events: IndexMap<i32, TempEventSubStructure>,
     ) -> Self {
         Self {
             id,
             name,
             website_url,
             gender_category,
-            location_types: BTreeSet::new(),
+            location_types,
             total_teams: total_teams as u32,
             total_participants: total_participants as u32,
             female_percentage: female_participants as f32 / total_participants as f32,
@@ -145,10 +147,11 @@ impl TempEventSubStructure {
         level: Option<i32>,
         date: NaiveDate,
         location: String,
+        location_types: BTreeSet<LocationType>,
         total_teams: i32,
         total_participants: i32,
         female_participants: i32,
-        teams: HashMap<i32, TeamSubStructure>,
+        teams: IndexMap<i32, TeamSubStructure>,
     ) -> Self {
         Self {
             id,
@@ -156,7 +159,7 @@ impl TempEventSubStructure {
             level: level.map(|l| l as u32),
             date,
             location,
-            location_types: BTreeSet::new(),
+            location_types,
             total_teams: total_teams as u32,
             total_participants: total_participants as u32,
             female_percentage: female_participants as f32 / total_participants as f32,

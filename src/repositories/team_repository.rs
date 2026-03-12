@@ -29,9 +29,9 @@ impl TeamRepository for Registry {
     ) -> AppResult<Vec<IdNameRow>> {
         let mut builder = QueryBuilder::<Postgres>::new(
             "SELECT DISTINCT
-                t.id    AS  id,
-                t.name  AS  name
-            FROM team t ",
+                t.id AS id,
+                t.name AS name
+            FROM team t",
         );
 
         let mut first = true;
@@ -39,8 +39,10 @@ impl TeamRepository for Registry {
             builder.push(
                 "JOIN team_event te
                     ON te.team_id = t.id
+                JOIN event_instance ei
+                    ON te.event_instance_id = ei.id
                 JOIN event e
-                    ON te.event_id = e.id ",
+                    ON ei.event_id = e.id ",
             );
             builder
                 .push("WHERE e.competition_id = ANY(")
@@ -66,31 +68,37 @@ impl TeamRepository for Registry {
 
     async fn find_structures_by_ids(&self, team_ids: Vec<i32>) -> AppResult<Vec<TeamStructureRow>> {
         let rows = sqlx::query_as(
-                "SELECT 
-                    t.id AS team_id,
-                    t.name AS team_name,
-
-                    COUNT(*) FILTER (WHERE tem.role = 'Contestant')
-                        OVER (PARTITION BY t.id) AS team_total_members,
-
-                    COUNT(*) FILTER (
-                        WHERE tem.role = 'Contestant'
-                        AND m.gender = 'Female'
-                    ) OVER (PARTITION BY t.id) AS team_female_members,
-
-                    i.id AS institution_id,
-                    i.name AS institution_name,
-                    i.short_name AS institution_short_name,
-                    
-                    e.id AS event_id,
-                    e.name AS event_name,
-                    e.level AS event_level,
-                    e.scope AS event_scope,
-                    e.date AS event_date",
+            "WITH team_event_stats AS (
+                SELECT
+                    tem.team_event_id,
+                    COUNT(*) FILTER (WHERE tem.role = 'Contestant') AS team_total_members
+                FROM team_event_member tem
+                GROUP BY tem.team_event_id
             )
-            .bind(team_ids)
-            .fetch_all(&self.pool)
-            .await?;
+            SELECT
+                t.id AS team_id,
+                t.name AS team_name,
+
+                c.id AS competition_id,
+                c.name AS competition_name,
+                e.id AS event_id,
+                e.name AS event_name,
+                tes.team_total_members AS event_total_participants
+
+            FROM team t
+            JOIN team_event te ON te.team_id = t.id
+            JOIN event_instance ei ON ei.id = te.event_instance_id
+            JOIN event e ON e.id = ei.event_id
+            JOIN competition c ON c.id = e.competition_id
+            JOIN team_event_stats tes ON tes.team_event_id = te.id
+
+            WHERE t.id = ANY($1::int[])
+
+            ORDER BY t.name, c.name, e.level NULLS LAST, e.name",
+        )
+        .bind(team_ids)
+        .fetch_all(&self.pool)
+        .await?;
 
         Ok(rows)
     }

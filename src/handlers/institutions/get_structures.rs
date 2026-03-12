@@ -1,4 +1,8 @@
-use axum::{Json, extract::{Query, State}, response::IntoResponse};
+use axum::{
+    Json,
+    extract::{Query, State},
+    response::IntoResponse,
+};
 
 use crate::{AppState, dtos::institutions::input::InstitutionStructuresQuery, services};
 

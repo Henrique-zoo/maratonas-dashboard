@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use crate::{
     dtos::institutions::output::{
@@ -21,7 +21,7 @@ pub async fn get_structures(
         .find_structures_by_ids(institution_ids)
         .await?
         .into_iter()
-        .fold(HashMap::new(), |mut institutions, row| {
+        .fold(IndexMap::new(), |mut institutions, row| {
             institutions
                 .entry(row.institution_id)
                 .or_insert_with(|| {
@@ -31,7 +31,7 @@ pub async fn get_structures(
                         row.institution_total_teams,
                         row.institution_total_contestants,
                         row.institution_female_contestants,
-                        HashMap::new(),
+                        IndexMap::new(),
                     )
                 })
                 .competitions
@@ -41,13 +41,21 @@ pub async fn get_structures(
                         row.competition_id,
                         row.competition_name,
                         row.competition_website_url,
-                        HashMap::new(),
+                        row.competition_total_teams,
+                        row.competition_total_participants,
+                        IndexMap::new(),
                     )
                 })
                 .events
                 .entry(row.event_id)
                 .or_insert_with(|| {
-                    TempEventSubStructure::new(row.event_id, row.event_name, HashMap::new())
+                    TempEventSubStructure::new(
+                        row.event_id,
+                        row.event_name,
+                        row.event_total_teams,
+                        row.event_total_participants,
+                        IndexMap::new(),
+                    )
                 })
                 .teams
                 .insert(

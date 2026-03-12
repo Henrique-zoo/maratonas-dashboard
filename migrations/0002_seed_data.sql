@@ -15,39 +15,39 @@ VALUES
 
 INSERT INTO location (id, parent_id, type, name)
 VALUES
-	(1, NULL, 'continent', 'South America'),
-	(2, NULL, 'continent', 'North America'),
-	(3, NULL, 'continent', 'Europe'),
-	(4, 1, 'country', 'Brazil'),
-	(5, 1, 'country', 'Argentina'),
-	(6, 1, 'country', 'Chile'),
-	(7, 1, 'country', 'Colombia'),
-	(8, 2, 'country', 'United States'),
-	(9, 2, 'country', 'Canada'),
-	(10, 3, 'country', 'Portugal'),
-	(11, 3, 'country', 'Spain'),
-	(12, 4, 'city', 'Sao Paulo'),
-	(13, 4, 'city', 'Campinas'),
-	(14, 4, 'city', 'Rio de Janeiro'),
-	(15, 5, 'city', 'Buenos Aires'),
-	(16, 6, 'city', 'Santiago'),
-	(17, 7, 'city', 'Bogota'),
-	(18, 8, 'city', 'New York'),
-	(19, 9, 'city', 'Toronto'),
-	(20, 10, 'city', 'Porto'),
-	(21, 11, 'city', 'Madrid'),
-	(22, 4, 'city', 'Belo Horizonte'),
-	(23, 12, 'campus', 'USP'),
-	(24, 13, 'campus', 'UNICAMP'),
-	(25, 14, 'campus', 'UFRJ'),
-	(26, 15, 'campus', 'UBA'),
-	(27, 16, 'campus', 'PUC Chile'),
-	(28, 17, 'campus', 'Uniandes'),
-	(29, 18, 'campus', 'MIT'),
-	(30, 19, 'campus', 'UofT'),
-	(31, 20, 'campus', 'UPorto'),
-	(32, 21, 'campus', 'UPM'),
-	(33, 22, 'campus', 'UFMG');
+	(1, NULL, 'Continent', 'South America'),
+	(2, NULL, 'Continent', 'North America'),
+	(3, NULL, 'Continent', 'Europe'),
+	(4, 1, 'Country', 'Brazil'),
+	(5, 1, 'Country', 'Argentina'),
+	(6, 1, 'Country', 'Chile'),
+	(7, 1, 'Country', 'Colombia'),
+	(8, 2, 'Country', 'United States'),
+	(9, 2, 'Country', 'Canada'),
+	(10, 3, 'Country', 'Portugal'),
+	(11, 3, 'Country', 'Spain'),
+	(12, 4, 'City', 'Sao Paulo'),
+	(13, 4, 'City', 'Campinas'),
+	(14, 4, 'City', 'Rio de Janeiro'),
+	(15, 5, 'City', 'Buenos Aires'),
+	(16, 6, 'City', 'Santiago'),
+	(17, 7, 'City', 'Bogota'),
+	(18, 8, 'City', 'New York'),
+	(19, 9, 'City', 'Toronto'),
+	(20, 10, 'City', 'Porto'),
+	(21, 11, 'City', 'Madrid'),
+	(22, 4, 'City', 'Belo Horizonte'),
+	(23, 12, 'Campus', 'USP'),
+	(24, 13, 'Campus', 'UNICAMP'),
+	(25, 14, 'Campus', 'UFRJ'),
+	(26, 15, 'Campus', 'UBA'),
+	(27, 16, 'Campus', 'PUC Chile'),
+	(28, 17, 'Campus', 'Uniandes'),
+	(29, 18, 'Campus', 'MIT'),
+	(30, 19, 'Campus', 'UofT'),
+	(31, 20, 'Campus', 'UPorto'),
+	(32, 21, 'Campus', 'UPM'),
+	(33, 22, 'Campus', 'UFMG');
 
 -- =========================
 -- COMPETITION
@@ -68,26 +68,47 @@ VALUES
 -- EVENT
 -- =========================
 
-INSERT INTO event (id, competition_id, location_id, name, level, date)
+INSERT INTO event (id, competition_id, name, level, scope)
 VALUES
-	(1, 1, 21, 'ICPC World Finals 2024', 1, '2024-09-15'),
-	(2, 1, 18, 'ICPC World Finals 2025', 1, '2025-09-20'),
-	(3, 2, 12, 'ICPC Latin America Finals 2024', 1, '2024-06-17'),
-	(4, 2, 15, 'ICPC Latin America Finals 2025', 1, '2025-06-16'),
-	(5, 3, 14, 'ICPC South America Regional Brazil 2024', 2, '2024-10-12'),
-	(6, 3, 16, 'ICPC South America Regional Chile 2025', 2, '2025-10-11'),
-	(7, 4, 13, 'Maratona SBC Finals 2024', 1, '2024-11-09'),
-	(8, 4, 22, 'Maratona SBC Finals 2025', 1, '2025-11-08'),
-	(9, 5, 12, 'OBI Feminina Nacional 2024', 2, '2024-08-24'),
-	(10, 5, 14, 'OBI Feminina Nacional 2025', 2, '2025-08-23'),
-	(11, 6, 12, 'OBI Nacional 2024', 2, '2024-09-28'),
-	(12, 6, 13, 'OBI Nacional 2025', 2, '2025-09-27'),
-	(13, 7, 15, 'Codeforces Gym South America Round 1', 3, '2024-04-06'),
-	(14, 7, 17, 'Codeforces Gym South America Round 2', 3, '2025-04-05'),
-	(15, 7, 12, 'Codeforces Gym South America Finals', 2, '2025-12-13'),
-	(16, 8, 20, 'Codeforces Gym Women Cup Round 1', 3, '2024-05-04'),
-	(17, 8, 21, 'Codeforces Gym Women Cup Round 2', 3, '2025-05-03'),
-	(18, 8, 19, 'Codeforces Gym Women Cup Finals', 2, '2026-01-17');
+	(1, 1, 'ICPC World Finals 2024', 1, 'Global'),
+	(2, 1, 'ICPC World Finals 2025', 1, 'Global'),
+	(3, 2, 'ICPC Latin America Finals 2024', 1, 'Continental'),
+	(4, 2, 'ICPC Latin America Finals 2025', 1, 'Continental'),
+	(5, 3, 'ICPC South America Regional Brazil 2024', 2, 'Regional'),
+	(6, 3, 'ICPC South America Regional Chile 2025', 2, 'Regional'),
+	(7, 4, 'Maratona SBC Finals 2024', 1, 'National'),
+	(8, 4, 'Maratona SBC Finals 2025', 1, 'National'),
+	(9, 5, 'OBI Feminina Nacional 2024', 2, 'National'),
+	(10, 5, 'OBI Feminina Nacional 2025', 2, 'National'),
+	(11, 6, 'OBI Nacional 2024', 2, 'National'),
+	(12, 6, 'OBI Nacional 2025', 2, 'National'),
+	(13, 7, 'Codeforces Gym South America Round 1', 3, 'InterRegional'),
+	(14, 7, 'Codeforces Gym South America Round 2', 3, 'InterRegional'),
+	(15, 7, 'Codeforces Gym South America Finals', 2, 'Regional'),
+	(16, 8, 'Codeforces Gym Women Cup Round 1', 3, 'InterRegional'),
+	(17, 8, 'Codeforces Gym Women Cup Round 2', 3, 'InterRegional'),
+	(18, 8, 'Codeforces Gym Women Cup Finals', 2, 'Regional');
+
+INSERT INTO event_instance (id, event_id, location_id, date)
+VALUES
+	(1, 1, 21, '2024-09-15'),
+	(2, 2, 18, '2025-09-20'),
+	(3, 3, 12, '2024-06-17'),
+	(4, 4, 15, '2025-06-16'),
+	(5, 5, 14, '2024-10-12'),
+	(6, 6, 16, '2025-10-11'),
+	(7, 7, 13, '2024-11-09'),
+	(8, 8, 22, '2025-11-08'),
+	(9, 9, 12, '2024-08-24'),
+	(10, 10, 14, '2025-08-23'),
+	(11, 11, 12, '2024-09-28'),
+	(12, 12, 13, '2025-09-27'),
+	(13, 13, 15, '2024-04-06'),
+	(14, 14, 17, '2025-04-05'),
+	(15, 15, 12, '2025-12-13'),
+	(16, 16, 20, '2024-05-04'),
+	(17, 17, 21, '2025-05-03'),
+	(18, 18, 19, '2026-01-17');
 
 -- =========================
 -- INSTITUTION
@@ -158,11 +179,11 @@ VALUES
 -- TEAM_EVENT
 -- =========================
 
-INSERT INTO team_event (id, team_id, event_id, campus_location_id, rank)
+INSERT INTO team_event (id, team_id, event_instance_id, campus_location_id, rank)
 SELECT
 	te_seed.id,
 	te_seed.team_id,
-	te_seed.event_id,
+	te_seed.event_instance_id,
 	il.location_id AS campus_location_id,
 	te_seed.rank
 FROM (
@@ -253,7 +274,7 @@ FROM (
 		(84, 18, 18, 3),
 		(85, 20, 18, 4),
 		(86, 22, 18, 5)
-) AS te_seed(id, team_id, event_id, rank)
+) AS te_seed(id, team_id, event_instance_id, rank)
 JOIN team AS t
 	ON t.id = te_seed.team_id
 JOIN institution_location AS il
@@ -295,7 +316,7 @@ CROSS JOIN (
 -- PROBLEM
 -- =========================
 
-INSERT INTO problem (id, event_id, item, title, statement)
+INSERT INTO problem (id, event_instance_id, item, title, statement)
 VALUES
 	(1, 3, 'A', 'Warmup Sum', 'Given two integers, output their sum.'),
 	(2, 3, 'B', 'Maximum Prefix', 'Find the maximum prefix sum of an array.'),
@@ -341,8 +362,8 @@ VALUES
 INSERT INTO input_output (problem_id, input, output)
 SELECT
 	p.id,
-	'Sample input for problem ' || p.item || ' (event ' || p.event_id || ')',
-	'Sample output for problem ' || p.item || ' (event ' || p.event_id || ')'
+	'Sample input for problem ' || p.item || ' (event instance ' || p.event_instance_id || ')',
+	'Sample output for problem ' || p.item || ' (event instance ' || p.event_instance_id || ')'
 FROM problem AS p;
 
 INSERT INTO input_output (problem_id, input, output)
@@ -408,7 +429,7 @@ SELECT
 	p.id
 FROM team_event AS te
 JOIN problem AS p
-	ON p.event_id = te.event_id
+	ON p.event_instance_id = te.event_instance_id
 WHERE p.item IN ('A', 'B');
 
 -- Keep serial sequences aligned after explicit id inserts.
@@ -416,6 +437,7 @@ SELECT setval(pg_get_serial_sequence('organizer', 'id'), (SELECT MAX(id) FROM or
 SELECT setval(pg_get_serial_sequence('location', 'id'), (SELECT MAX(id) FROM location));
 SELECT setval(pg_get_serial_sequence('competition', 'id'), (SELECT MAX(id) FROM competition));
 SELECT setval(pg_get_serial_sequence('event', 'id'), (SELECT MAX(id) FROM event));
+SELECT setval(pg_get_serial_sequence('event_instance', 'id'), (SELECT MAX(id) FROM event_instance));
 SELECT setval(pg_get_serial_sequence('institution', 'id'), (SELECT MAX(id) FROM institution));
 SELECT setval(pg_get_serial_sequence('team', 'id'), (SELECT MAX(id) FROM team));
 SELECT setval(pg_get_serial_sequence('team_event', 'id'), (SELECT MAX(id) FROM team_event));

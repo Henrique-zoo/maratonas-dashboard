@@ -37,7 +37,7 @@ pub enum Role {
     Reserve,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, PartialEq, Eq, PartialOrd, Ord)]
 #[sqlx(type_name = "location_type")]
 pub enum LocationType {
     Continent,

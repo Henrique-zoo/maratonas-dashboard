@@ -15,13 +15,23 @@ CREATE TYPE status AS ENUM (
 );
 CREATE TYPE role AS ENUM ('Contestant', 'Coach', 'Reserve');
 CREATE TYPE location_type AS ENUM (
-  'continent',
-  'country',
-  'region',
-  'province',
-  'prefecture',
-  'city',
-  'campus'
+  'Continent',
+  'Country',
+  'Region',
+  'Province',
+  'Prefecture',
+  'City',
+  'Campus'
+);
+CREATE TYPE scope AS ENUM (
+  'Global',
+  'InterContinental',
+  'Continental',
+  'International',
+  'National',
+  'InterRegional',
+  'Regional',
+  'Internal'
 );
 
 -- =========================
@@ -56,15 +66,24 @@ CREATE INDEX idx_competition_organizer_id ON competition(organizer_id);
 CREATE TABLE event (
   id SERIAL PRIMARY KEY,
   competition_id INT NOT NULL REFERENCES competition(id),
-  location_id INT NOT NULL REFERENCES location(id),
   name VARCHAR NOT NULL,
   level INT,
-  date DATE NOT NULL,
-  UNIQUE (competition_id, name, date)
+  scope scope NOT NULL,
+  UNIQUE (competition_id, name)
 );
 
 CREATE INDEX idx_event_competition_id ON event(competition_id);
-CREATE INDEX idx_event_location_id ON event(location_id);
+
+CREATE TABLE event_instance (
+  id SERIAL PRIMARY KEY,
+  event_id INT NOT NULL REFERENCES event(id),
+  location_id INT NOT NULL REFERENCES location(id),
+  date DATE NOT NULL,
+  UNIQUE (event_id, date)
+);
+
+CREATE INDEX idx_event_instance_event_id ON event_instance(event_id);
+CREATE INDEX idx_event_instance_location_id ON event_instance(location_id);
 
 CREATE TABLE institution (
   id SERIAL PRIMARY KEY,
@@ -93,14 +112,14 @@ CREATE INDEX idx_team_institution_id ON team(institution_id);
 
 CREATE TABLE problem (
   id SERIAL PRIMARY KEY,
-  event_id INT NOT NULL REFERENCES event(id),
+  event_instance_id INT NOT NULL REFERENCES event_instance(id),
   item VARCHAR(10) NOT NULL,
   title TEXT NOT NULL,
   statement TEXT NOT NULL,
-  UNIQUE (event_id, item)
+  UNIQUE (event_instance_id, item)
 );
 
-CREATE INDEX idx_problem_event_id ON problem(event_id);
+CREATE INDEX idx_problem_event_instance_id ON problem(event_instance_id);
 
 CREATE TABLE input_output (
   id SERIAL PRIMARY KEY,
@@ -126,14 +145,14 @@ CREATE TABLE authorship (
 CREATE TABLE team_event (
   id SERIAL PRIMARY KEY,
   team_id INT NOT NULL REFERENCES team(id),
-  event_id INT NOT NULL REFERENCES event(id),
+  event_instance_id INT NOT NULL REFERENCES event_instance(id),
   campus_location_id INT REFERENCES location(id),
   rank INT,
-  UNIQUE (team_id, event_id)
+  UNIQUE (team_id, event_instance_id)
 );
 
 CREATE INDEX idx_team_event_team_id ON team_event(team_id);
-CREATE INDEX idx_team_event_event_id ON team_event(event_id);
+CREATE INDEX idx_team_event_event_instance_id ON team_event(event_instance_id);
 CREATE INDEX idx_team_event_campus_location_id ON team_event(campus_location_id);
 
 CREATE TABLE member (
