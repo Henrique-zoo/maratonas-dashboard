@@ -2,14 +2,15 @@ use chrono::NaiveDate;
 use indexmap::IndexMap;
 use serde::Serialize;
 
-use crate::shared::types::{GenderCategory, LocationType};
+use crate::shared::types::{GenderCategory, Scope};
 
 // ======================== Response DTOs ========================
 #[derive(Debug, Serialize)]
-pub struct OrganizerStructure {
+pub struct TeamStructure {
     pub id: i32,
     pub name: String,
-    pub website_url: Option<String>,
+    pub total_members: u32,
+    pub female_percentage: f32,
     pub competitions: Vec<CompetitionSubStructure>,
 }
 
@@ -20,11 +21,6 @@ pub struct CompetitionSubStructure {
     pub website_url: Option<String>,
     pub gender_category: GenderCategory,
     pub years: Vec<u32>,
-    pub total_institutions: u32,
-    pub total_teams: u32,
-    pub total_participants: u32,
-    pub female_percentage: f32,
-    pub location_types: Vec<LocationType>,
     pub events: Vec<EventSubStructure>,
 }
 
@@ -34,21 +30,20 @@ pub struct EventSubStructure {
     pub name: String,
     pub level: Option<u32>,
     pub date: NaiveDate,
-    pub total_institutions: u32,
-    pub total_teams: u32,
-    pub total_participants: u32,
-    pub female_percentage: f32,
-    pub location_types: Vec<LocationType>,
+    pub location: String,
+    pub scope: Scope,
+    pub team_event_rank: u32,
 }
 
 // ======================== Intermediate structures ========================
-// Used while aggregating organizer -> competitions -> events
+// Used while aggregating teams -> competitions -> events
 // before converting to the final serializable payload.
 #[derive(Debug)]
-pub struct TempOrganizerStructure {
+pub struct TempTeamStructure {
     pub id: i32,
     pub name: String,
-    pub website_url: Option<String>,
+    pub total_members: u32,
+    pub female_percentage: f32,
     pub competitions: IndexMap<i32, TempCompetitionSubStructure>,
 }
 
@@ -59,21 +54,16 @@ pub struct TempCompetitionSubStructure {
     pub website_url: Option<String>,
     pub gender_category: GenderCategory,
     pub years: Vec<u32>,
-    pub total_institutions: u32,
-    pub total_teams: i32,
-    pub total_participants: i32,
-    pub female_percentage: f32,
-    pub location_types: Vec<LocationType>,
     pub events: IndexMap<i32, EventSubStructure>,
 }
 
-// ======================== Conversion to final DTO ========================
-impl From<TempOrganizerStructure> for OrganizerStructure {
-    fn from(value: TempOrganizerStructure) -> Self {
+impl From<TempTeamStructure> for TeamStructure {
+    fn from(value: TempTeamStructure) -> Self {
         Self {
             id: value.id,
             name: value.name,
-            website_url: value.website_url,
+            total_members: value.total_members,
+            female_percentage: value.female_percentage,
             competitions: value
                 .competitions
                 .into_values()
@@ -85,36 +75,30 @@ impl From<TempOrganizerStructure> for OrganizerStructure {
 
 impl From<TempCompetitionSubStructure> for CompetitionSubStructure {
     fn from(value: TempCompetitionSubStructure) -> Self {
-        let mut location_types = value.location_types;
-        location_types.sort();
         Self {
             id: value.id,
             name: value.name,
             website_url: value.website_url,
             gender_category: value.gender_category,
             years: value.years,
-            total_institutions: value.total_institutions,
-            total_teams: value.total_teams as u32,
-            total_participants: value.total_participants as u32,
-            female_percentage: value.female_percentage,
-            location_types,
             events: value.events.into_values().collect(),
         }
     }
 }
 
-// ======================== Helper constructors ========================
-impl TempOrganizerStructure {
+impl TempTeamStructure {
     pub fn new(
         id: i32,
         name: String,
-        website_url: Option<String>,
+        total_members: i32,
+        female_members: i32,
         competitions: IndexMap<i32, TempCompetitionSubStructure>,
     ) -> Self {
         Self {
             id,
             name,
-            website_url,
+            total_members: total_members as u32,
+            female_percentage: female_members as f32 / total_members as f32,
             competitions,
         }
     }
@@ -127,11 +111,6 @@ impl TempCompetitionSubStructure {
         website_url: Option<String>,
         gender_category: GenderCategory,
         years: Vec<i32>,
-        total_institutions: i32,
-        total_teams: i32,
-        total_participants: i32,
-        female_participants: i32,
-        location_types: Vec<LocationType>,
         events: IndexMap<i32, EventSubStructure>,
     ) -> Self {
         Self {
@@ -140,11 +119,6 @@ impl TempCompetitionSubStructure {
             website_url,
             gender_category,
             years: years.into_iter().map(|y| y as u32).collect(),
-            total_institutions: total_institutions as u32,
-            total_teams,
-            total_participants,
-            female_percentage: female_participants as f32 / total_participants as f32,
-            location_types,
             events,
         }
     }
@@ -156,24 +130,18 @@ impl EventSubStructure {
         name: String,
         level: Option<i32>,
         date: NaiveDate,
-        total_institutions: i32,
-        total_teams: i32,
-        total_participants: i32,
-        female_participants: i32,
-        location_types: Vec<LocationType>,
+        location: String,
+        scope: Scope,
+        team_event_rank: i32,
     ) -> Self {
-        let mut location_types = location_types;
-        location_types.sort();
         Self {
             id,
             name,
             level: level.map(|l| l as u32),
             date,
-            total_institutions: total_institutions as u32,
-            total_teams: total_teams as u32,
-            total_participants: total_participants as u32,
-            female_percentage: female_participants as f32 / total_participants as f32,
-            location_types,
+            location,
+            scope,
+            team_event_rank: team_event_rank as u32,
         }
     }
 }

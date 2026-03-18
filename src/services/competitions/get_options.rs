@@ -2,7 +2,7 @@ use crate::{
     dtos::filters::output::Filter, errors::AppResult, repositories::CompetitionRepository,
 };
 
-pub async fn get_option(
+pub async fn get_options(
     repo: &dyn CompetitionRepository,
     organizer_ids: Option<Vec<i32>>,
 ) -> AppResult<Vec<Filter>> {
@@ -41,7 +41,7 @@ mod tests {
                 ])
             });
 
-        let result = get_option(&repo, Some(vec![1, 2])).await.unwrap();
+        let result = get_options(&repo, Some(vec![1, 2])).await.unwrap();
 
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].id, 1);

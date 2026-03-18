@@ -4,18 +4,14 @@ use axum::{
     response::IntoResponse,
 };
 
-use crate::{
-    AppState,
-    dtos::competitions::input::{CompetitionPath, CompetitionStructureQuery},
-    services,
-};
+use crate::{AppState, dtos::competitions::input::CompetitionByYearQuery, services};
 
 pub async fn get_structure_by_year(
     State(state): State<AppState>,
-    Path(path): Path<CompetitionPath>,
-    Query(query): Query<CompetitionStructureQuery>,
+    Path(id): Path<i32>,
+    Query(query): Query<CompetitionByYearQuery>,
 ) -> impl IntoResponse {
-    services::competitions::get_structure_by_year(&state.repo, path.id, query.year)
+    services::competitions::get_structure_by_year(&state.repo, id, query.year)
         .await
         .map(|structure| Json(structure))
 }

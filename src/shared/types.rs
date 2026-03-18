@@ -48,3 +48,16 @@ pub enum LocationType {
     City,
     Campus,
 }
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, PartialEq, Eq, PartialOrd, Ord)]
+#[sqlx(type_name = "scope")]
+pub enum Scope {
+    Global,
+    InterContinental,
+    Continental,
+    International,
+    National,
+    InterRegional,
+    Regional,
+    Internal,
+}

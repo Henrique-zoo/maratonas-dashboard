@@ -28,9 +28,8 @@ pub async fn get_structures(
                     TempInstitutionStructure::new(
                         row.institution_id,
                         row.institution_name,
-                        row.institution_total_teams,
-                        row.institution_total_contestants,
-                        row.institution_female_contestants,
+                        row.institution_short_name,
+                        row.institution_location,
                         IndexMap::new(),
                     )
                 })
@@ -41,8 +40,6 @@ pub async fn get_structures(
                         row.competition_id,
                         row.competition_name,
                         row.competition_website_url,
-                        row.competition_total_teams,
-                        row.competition_total_participants,
                         IndexMap::new(),
                     )
                 })
@@ -52,8 +49,9 @@ pub async fn get_structures(
                     TempEventSubStructure::new(
                         row.event_id,
                         row.event_name,
-                        row.event_total_teams,
-                        row.event_total_participants,
+                        row.event_date,
+                        row.event_level,
+                        row.event_scope,
                         IndexMap::new(),
                     )
                 })

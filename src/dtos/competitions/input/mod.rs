@@ -8,13 +8,7 @@ pub struct CompetitionStructuresQuery {
     pub competition_ids: CsvOptVec<i32>,
 }
 
-// For any endpoint that searches for data of a single competition by its id
 #[derive(Deserialize)]
-pub struct CompetitionPath {
-    pub id: i32,
-}
-
-#[derive(Deserialize)]
-pub struct CompetitionStructureQuery {
+pub struct CompetitionByYearQuery {
     pub year: Option<i32>,
 }

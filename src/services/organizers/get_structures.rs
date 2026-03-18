@@ -40,10 +40,6 @@ pub async fn get_structures(
                         row.competition_website_url,
                         row.competition_gender_category,
                         row.competition_years,
-                        row.competition_total_institutions,
-                        row.competition_total_teams,
-                        row.competition_total_participants,
-                        row.competition_female_participants,
                         row.competition_location_types,
                         IndexMap::new(),
                     )

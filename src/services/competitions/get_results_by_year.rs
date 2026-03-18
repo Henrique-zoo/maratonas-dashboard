@@ -16,7 +16,7 @@ pub async fn get_results_by_year(
     let year =
         year.ok_or_else(|| AppError::BadRequest("You need to specify the year.".to_string()))?;
 
-    let structure = repo
+    let results = repo
         .find_competition_results_by_year(competition_id, year)
         .await?
         .into_iter()
@@ -24,13 +24,7 @@ pub async fn get_results_by_year(
             TempCompetitionYearResults::default(),
             |mut competition, row| {
                 if competition.events.is_empty() {
-                    competition.update(
-                        row.competition_total_institutions,
-                        row.competition_total_teams,
-                        row.competition_total_participants,
-                        row.competition_female_participants,
-                        row.competition_location_types,
-                    );
+                    competition.update(row.competition_location_types);
                 }
 
                 competition
@@ -43,10 +37,6 @@ pub async fn get_results_by_year(
                             row.event_level,
                             row.event_date,
                             row.event_location,
-                            row.event_total_institutions,
-                            row.event_total_teams,
-                            row.event_total_participants,
-                            row.event_female_participants,
                             row.event_location_types,
                             IndexMap::new(),
                         )
@@ -70,5 +60,5 @@ pub async fn get_results_by_year(
             },
         );
 
-    Ok(CompetitionYearResults::from(structure))
+    Ok(CompetitionYearResults::from(results))
 }

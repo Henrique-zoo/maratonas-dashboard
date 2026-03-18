@@ -9,3 +9,11 @@ pub struct EventLocationStatsRow {
     pub total_participants: i32,
     pub female_participants: i32,
 }
+
+#[derive(FromRow)]
+pub struct EventYearStatsRow {
+    pub total_institutions: i32,
+    pub total_teams: i32,
+    pub total_participants: i32,
+    pub female_participants: i32,
+}

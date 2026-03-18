@@ -3,7 +3,7 @@ mod competition_structure;
 mod competition_year_results;
 mod competition_year_structure;
 
-pub use competition_stats::CompetitionLocationStatsRow;
-pub use competition_structure::CompetitionStructureRow;
-pub use competition_year_results::CompetitionYearResultRow;
-pub use competition_year_structure::CompetitionYearStructureRow;
+pub use competition_stats::*;
+pub use competition_structure::*;
+pub use competition_year_results::*;
+pub use competition_year_structure::*;

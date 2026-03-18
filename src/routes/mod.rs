@@ -14,4 +14,5 @@ pub fn create_router() -> Router<AppState> {
         .merge(organizers::router())
         .merge(institutions::router())
         .merge(teams::router())
+        .merge(events::router())
 }

@@ -1,15 +1,17 @@
+use chrono::NaiveDate;
 use indexmap::IndexMap;
 
 use serde::Serialize;
+
+use crate::shared::types::Scope;
 
 // ======================== Response DTOs ========================
 #[derive(Serialize, Debug)]
 pub struct InstitutionStructure {
     pub id: i32,
     pub name: String,
-    pub total_teams: u32,
-    pub total_contestants: u32,
-    pub female_percentage: f32,
+    pub short_name: Option<String>,
+    pub location: String,
     pub competitions: Vec<CompetitionSubStructure>,
 }
 
@@ -18,8 +20,6 @@ pub struct CompetitionSubStructure {
     pub id: i32,
     pub name: String,
     pub website_url: Option<String>,
-    pub total_teams: u32,
-    pub total_participants: u32,
     pub events: Vec<EventSubStructure>,
 }
 
@@ -27,8 +27,9 @@ pub struct CompetitionSubStructure {
 pub struct EventSubStructure {
     pub id: i32,
     pub name: String,
-    pub total_teams: u32,
-    pub total_participants: u32,
+    pub date: NaiveDate,
+    pub level: Option<u32>,
+    pub scope: Scope,
     pub teams: Vec<TeamSubStructure>,
 }
 
@@ -48,9 +49,8 @@ pub struct TeamSubStructure {
 pub struct TempInstitutionStructure {
     pub id: i32,
     pub name: String,
-    pub total_teams: u32,
-    pub total_contestants: u32,
-    pub female_percentage: f32,
+    pub short_name: Option<String>,
+    pub location: String,
     pub competitions: IndexMap<i32, TempCompetitionSubStructure>,
 }
 
@@ -59,8 +59,6 @@ pub struct TempCompetitionSubStructure {
     pub id: i32,
     pub name: String,
     pub website_url: Option<String>,
-    pub total_teams: u32,
-    pub total_participants: u32,
     pub events: IndexMap<i32, TempEventSubStructure>,
 }
 
@@ -68,8 +66,9 @@ pub struct TempCompetitionSubStructure {
 pub struct TempEventSubStructure {
     pub id: i32,
     pub name: String,
-    pub total_teams: u32,
-    pub total_participants: u32,
+    pub date: NaiveDate,
+    pub level: Option<u32>,
+    pub scope: Scope,
     pub teams: IndexMap<i32, TeamSubStructure>,
 }
 
@@ -79,9 +78,8 @@ impl From<TempInstitutionStructure> for InstitutionStructure {
         Self {
             id: value.id,
             name: value.name,
-            total_teams: value.total_teams,
-            total_contestants: value.total_contestants,
-            female_percentage: value.female_percentage,
+            short_name: value.short_name,
+            location: value.location,
             competitions: {
                 value
                     .competitions
@@ -99,8 +97,6 @@ impl From<TempCompetitionSubStructure> for CompetitionSubStructure {
             id: value.id,
             name: value.name,
             website_url: value.website_url,
-            total_teams: value.total_teams,
-            total_participants: value.total_participants,
             events: {
                 value
                     .events
@@ -117,8 +113,9 @@ impl From<TempEventSubStructure> for EventSubStructure {
         Self {
             id: value.id,
             name: value.name,
-            total_teams: value.total_teams,
-            total_participants: value.total_participants,
+            date: value.date,
+            level: value.level,
+            scope: value.scope,
             teams: { value.teams.into_values().collect() },
         }
     }
@@ -129,17 +126,15 @@ impl TempInstitutionStructure {
     pub fn new(
         id: i32,
         name: String,
-        total_teams: i32,
-        total_contestants: i32,
-        female_contestants: i32,
+        short_name: Option<String>,
+        location: String,
         competitions: IndexMap<i32, TempCompetitionSubStructure>,
     ) -> Self {
         Self {
             id,
             name,
-            total_teams: total_teams as u32,
-            total_contestants: total_contestants as u32,
-            female_percentage: female_contestants as f32 / total_contestants as f32,
+            short_name,
+            location,
             competitions,
         }
     }
@@ -150,16 +145,12 @@ impl TempCompetitionSubStructure {
         id: i32,
         name: String,
         website_url: Option<String>,
-        total_teams: i32,
-        total_participants: i32,
         events: IndexMap<i32, TempEventSubStructure>,
     ) -> Self {
         Self {
             id,
             name,
             website_url,
-            total_teams: total_teams as u32,
-            total_participants: total_participants as u32,
             events,
         }
     }
@@ -169,15 +160,17 @@ impl TempEventSubStructure {
     pub fn new(
         id: i32,
         name: String,
-        total_teams: i32,
-        total_participants: i32,
+        date: NaiveDate,
+        level: Option<i32>,
+        scope: Scope,
         teams: IndexMap<i32, TeamSubStructure>,
     ) -> Self {
         Self {
             id,
             name,
-            total_teams: total_teams as u32,
-            total_participants: total_participants as u32,
+            date,
+            level: level.map(|l| l as u32),
+            scope,
             teams,
         }
     }
