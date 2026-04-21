@@ -39,18 +39,24 @@ pub struct TeamSubStructure {
     pub female_percentage: f32,
 }
 
-// Used for updating competition stats and events by year in organizer page
+// Used for updating competition by year in organizer page
 #[derive(Default, Debug, Serialize)]
-pub struct CompetitionYearStructure {
+pub struct OrganizerCompetitionYearStructure {
     pub location_types: Vec<LocationType>,
     pub events: Vec<crate::dtos::organizers::output::EventSubStructure>,
 }
 
-// Used for updating competition stats and events by year in competition page
+// Used for updating competition by year in competition page
 #[derive(Debug, Serialize)]
-pub struct CompetitionYearResults {
+pub struct CompetitionYearStructure {
     pub location_types: Vec<LocationType>,
     pub events: Vec<EventSubStructure>,
+}
+
+// Used for updating competition by year in competition page
+#[derive(Default, Debug, Serialize)]
+pub struct TeamCompetitionYearStructure {
+    pub events: Vec<crate::dtos::teams::output::EventSubStructure>,
 }
 
 // ======================== Intermediate structures ========================
@@ -79,7 +85,7 @@ pub struct TempEventSubStructure {
 }
 
 #[derive(Default, Debug)]
-pub struct TempCompetitionYearResults {
+pub struct TempCompetitionYearStructure {
     pub location_types: Vec<LocationType>,
     pub events: IndexMap<i32, TempEventSubStructure>,
 }
@@ -121,8 +127,8 @@ impl From<TempEventSubStructure> for EventSubStructure {
     }
 }
 
-impl From<TempCompetitionYearResults> for CompetitionYearResults {
-    fn from(value: TempCompetitionYearResults) -> Self {
+impl From<TempCompetitionYearStructure> for CompetitionYearStructure {
+    fn from(value: TempCompetitionYearStructure) -> Self {
         let mut location_types = value.location_types;
         location_types.sort();
         Self {
@@ -205,13 +211,13 @@ impl TeamSubStructure {
     }
 }
 
-impl CompetitionYearStructure {
+impl OrganizerCompetitionYearStructure {
     pub fn update(&mut self, location_types: Vec<LocationType>) {
         self.location_types = location_types;
     }
 }
 
-impl TempCompetitionYearResults {
+impl TempCompetitionYearStructure {
     pub fn update(&mut self, location_types: Vec<LocationType>) {
         self.location_types = location_types;
     }

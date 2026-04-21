@@ -4,12 +4,12 @@ use crate::{
     errors::AppResult,
     repositories::{
         Registry,
-        competition::{options, results, stats, structures},
+        competition::{options, stats, structures},
         types::{
             IdNameRow,
             competitions::{
-                CompetitionLocationStatsRow, CompetitionStructureRow, CompetitionYearResultRow,
-                CompetitionYearStatsRow, CompetitionYearStructureRow,
+                CompetitionEventsByYearRow, CompetitionLocationStatsRow, CompetitionStructureRow,
+                CompetitionTeamYearResultRow, CompetitionYearStatsRow, CompetitionYearStructureRow,
             },
         },
     },
@@ -33,21 +33,27 @@ pub trait CompetitionRepository: Send + Sync {
         location_type: LocationType,
         year: i32,
     ) -> AppResult<Vec<CompetitionLocationStatsRow>>;
-    async fn find_competition_structure_by_year(
+    async fn find_events_by_year(
+        &self,
+        competition_id: i32,
+        year: i32,
+    ) -> AppResult<Vec<CompetitionEventsByYearRow>>;
+    async fn find_structure_by_year(
         &self,
         competition_id: i32,
         year: i32,
     ) -> AppResult<Vec<CompetitionYearStructureRow>>;
-    async fn find_competition_results_by_year(
-        &self,
-        competition_id: i32,
-        year: i32,
-    ) -> AppResult<Vec<CompetitionYearResultRow>>;
     async fn find_competition_stats_by_year(
         &self,
         competition_id: i32,
         year: i32,
     ) -> AppResult<CompetitionYearStatsRow>;
+    async fn find_team_result_by_year(
+        &self,
+        team_id: i32,
+        competition_id: i32,
+        year: i32,
+    ) -> AppResult<Vec<CompetitionTeamYearResultRow>>;
 }
 
 #[async_trait]
@@ -75,20 +81,20 @@ impl CompetitionRepository for Registry {
         stats::find_location_stats_by_competition(self, competition_id, location_type, year).await
     }
 
-    async fn find_competition_structure_by_year(
+    async fn find_events_by_year(
+        &self,
+        competition_id: i32,
+        year: i32,
+    ) -> AppResult<Vec<CompetitionEventsByYearRow>> {
+        structures::find_events_by_year(self, competition_id, year).await
+    }
+
+    async fn find_structure_by_year(
         &self,
         competition_id: i32,
         year: i32,
     ) -> AppResult<Vec<CompetitionYearStructureRow>> {
-        structures::find_competition_structure_by_year(self, competition_id, year).await
-    }
-
-    async fn find_competition_results_by_year(
-        &self,
-        competition_id: i32,
-        year: i32,
-    ) -> AppResult<Vec<CompetitionYearResultRow>> {
-        results::find_competition_results_by_year(self, competition_id, year).await
+        structures::find_structure_by_year(self, competition_id, year).await
     }
 
     async fn find_competition_stats_by_year(
@@ -97,5 +103,14 @@ impl CompetitionRepository for Registry {
         year: i32,
     ) -> AppResult<CompetitionYearStatsRow> {
         stats::find_competition_stats_by_year(self, competition_id, year).await
+    }
+
+    async fn find_team_result_by_year(
+        &self,
+        team_id: i32,
+        competition_id: i32,
+        year: i32,
+    ) -> AppResult<Vec<CompetitionTeamYearResultRow>> {
+        structures::find_team_result_by_year(self, team_id, competition_id, year).await
     }
 }

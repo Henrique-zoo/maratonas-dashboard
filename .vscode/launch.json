@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug md_backend (CodeLLDB)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/md_backend",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "debug: prepare",
+      "env": {
+        "DATABASE_URL": "${input:databaseUrl}"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "databaseUrl",
+      "type": "promptString",
+      "description": "DATABASE_URL para conectar no Postgres local",
+      "default": "postgres://user:password@localhost:5432/maratona_db"
+    }
+  ]
+}

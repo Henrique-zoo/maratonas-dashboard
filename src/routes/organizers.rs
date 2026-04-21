@@ -12,4 +12,8 @@ pub fn router() -> Router<AppState> {
             "/organizers/structures",
             get(handlers::organizers::get_structures),
         )
+        .route(
+            "/organizers/competitions/{id}/structure",
+            get(handlers::organizers::get_structure_by_year),
+        )
 }

@@ -9,8 +9,6 @@ use crate::shared::types::{GenderCategory, Scope};
 pub struct TeamStructure {
     pub id: i32,
     pub name: String,
-    pub total_members: u32,
-    pub female_percentage: f32,
     pub competitions: Vec<CompetitionSubStructure>,
 }
 
@@ -21,6 +19,8 @@ pub struct CompetitionSubStructure {
     pub website_url: Option<String>,
     pub gender_category: GenderCategory,
     pub years: Vec<u32>,
+    pub total_members: u32,
+    pub female_percentage: f32,
     pub events: Vec<EventSubStructure>,
 }
 
@@ -42,8 +42,6 @@ pub struct EventSubStructure {
 pub struct TempTeamStructure {
     pub id: i32,
     pub name: String,
-    pub total_members: u32,
-    pub female_percentage: f32,
     pub competitions: IndexMap<i32, TempCompetitionSubStructure>,
 }
 
@@ -54,6 +52,8 @@ pub struct TempCompetitionSubStructure {
     pub website_url: Option<String>,
     pub gender_category: GenderCategory,
     pub years: Vec<u32>,
+    pub total_members: u32,
+    pub female_percentage: f32,
     pub events: IndexMap<i32, EventSubStructure>,
 }
 
@@ -62,8 +62,6 @@ impl From<TempTeamStructure> for TeamStructure {
         Self {
             id: value.id,
             name: value.name,
-            total_members: value.total_members,
-            female_percentage: value.female_percentage,
             competitions: value
                 .competitions
                 .into_values()
@@ -81,6 +79,8 @@ impl From<TempCompetitionSubStructure> for CompetitionSubStructure {
             website_url: value.website_url,
             gender_category: value.gender_category,
             years: value.years,
+            total_members: value.total_members,
+            female_percentage: value.female_percentage,
             events: value.events.into_values().collect(),
         }
     }
@@ -90,15 +90,11 @@ impl TempTeamStructure {
     pub fn new(
         id: i32,
         name: String,
-        total_members: i32,
-        female_members: i32,
         competitions: IndexMap<i32, TempCompetitionSubStructure>,
     ) -> Self {
         Self {
             id,
             name,
-            total_members: total_members as u32,
-            female_percentage: female_members as f32 / total_members as f32,
             competitions,
         }
     }
@@ -111,6 +107,8 @@ impl TempCompetitionSubStructure {
         website_url: Option<String>,
         gender_category: GenderCategory,
         years: Vec<i32>,
+        total_members: i32,
+        female_members: i32,
         events: IndexMap<i32, EventSubStructure>,
     ) -> Self {
         Self {
@@ -119,6 +117,8 @@ impl TempCompetitionSubStructure {
             website_url,
             gender_category,
             years: years.into_iter().map(|y| y as u32).collect(),
+            total_members: total_members as u32,
+            female_percentage: female_members as f32 / total_members as f32,
             events,
         }
     }

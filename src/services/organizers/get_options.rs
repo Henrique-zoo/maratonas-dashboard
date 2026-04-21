@@ -14,8 +14,8 @@ pub async fn get_options(repo: &dyn OrganizerRepository) -> AppResult<Vec<Filter
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repositories::MockOrganizerRepository;
     use crate::repositories::types::IdNameRow;
+    use crate::{errors::AppError, repositories::MockOrganizerRepository};
 
     #[tokio::test]
     async fn get_options_returns_filters_from_repository_rows() {
@@ -58,5 +58,21 @@ mod tests {
         let result = get_options(&repo).await.unwrap();
 
         assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_options_propagates_repository_error() {
+        let mut repo = MockOrganizerRepository::new();
+
+        repo.expect_find_options()
+            .returning(|| Err(AppError::BadRequest("repository fail".to_string())));
+
+        let result = get_options(&repo).await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Bad request: repository fail"
+        );
     }
 }

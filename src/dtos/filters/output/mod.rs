@@ -3,7 +3,7 @@ use serde::Serialize;
 use crate::repositories::types::IdNameRow;
 
 // Simple DTO for filter options (id + name).
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Filter {
     pub id: i32,
     pub name: String,

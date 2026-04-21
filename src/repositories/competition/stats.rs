@@ -34,11 +34,11 @@ pub(super) async fn find_location_stats_by_competition(
             JOIN (
                 SELECT
                     tem.team_event_id,
-                    COUNT(*) FILTER (WHERE tem.role = 'Contestant') AS total_participants,
+                    COUNT(*) FILTER (WHERE tem.role = 'Contestant')::int4 AS total_participants,
                     COUNT(*) FILTER (
                         WHERE tem.role = 'Contestant'
                         AND m.gender = 'Female'
-                    ) AS female_participants
+                    )::int4 AS female_participants
                 FROM team_event_member tem
                 JOIN member m ON m.id = tem.member_id
                 GROUP BY tem.team_event_id

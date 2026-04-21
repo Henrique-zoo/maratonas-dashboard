@@ -17,11 +17,95 @@ pub async fn get_location_stats(
         year.ok_or_else(|| AppError::BadRequest("You need to specify a year.".to_string()))?;
 
     let stats = repo
-        .find_location_stats_by_event(event_id, location_type, year)
+        .find_location_stats(event_id, location_type, year)
         .await?
         .into_iter()
         .map(EventLocationStats::from)
         .collect();
 
     Ok(stats)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::{
+        errors::AppError,
+        repositories::{MockEventRepository, types::events::EventLocationStatsRow},
+    };
+
+    fn assert_f32_eq(left: f32, right: f32) {
+        assert!((left - right).abs() < 1e-6);
+    }
+
+    #[tokio::test]
+    async fn get_location_stats_requires_location_type_and_year() {
+        let repo = MockEventRepository::new();
+
+        assert!(
+            get_location_stats(&repo, 20, None, Some(2024))
+                .await
+                .is_err()
+        );
+        assert!(
+            get_location_stats(&repo, 20, Some(LocationType::Country), None)
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn get_location_stats_maps_repository_rows() {
+        let mut repo = MockEventRepository::new();
+        repo.expect_find_location_stats()
+            .with(
+                mockall::predicate::eq(20),
+                mockall::predicate::eq(LocationType::Country),
+                mockall::predicate::eq(2024),
+            )
+            .returning(|_, _, _| {
+                Ok(vec![EventLocationStatsRow {
+                    location_id: 1,
+                    location_name: "Brazil".to_string(),
+                    total_institutions: 12,
+                    total_teams: 24,
+                    total_participants: 72,
+                    female_participants: 18,
+                }])
+            });
+
+        let result = get_location_stats(&repo, 20, Some(LocationType::Country), Some(2024))
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Brazil");
+        assert_f32_eq(result[0].female_percentage, 0.25);
+    }
+
+    #[tokio::test]
+    async fn get_location_stats_returns_empty_when_repository_returns_empty() {
+        let mut repo = MockEventRepository::new();
+        repo.expect_find_location_stats()
+            .returning(|_, _, _| Ok(vec![]));
+
+        let result = get_location_stats(&repo, 20, Some(LocationType::Country), Some(2024))
+            .await
+            .unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_location_stats_propagates_repository_error() {
+        let mut repo = MockEventRepository::new();
+        repo.expect_find_location_stats()
+            .returning(|_, _, _| Err(AppError::BadRequest("repo fail".to_string())));
+
+        let result = get_location_stats(&repo, 20, Some(LocationType::Country), Some(2024)).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Bad request: repo fail");
+    }
 }

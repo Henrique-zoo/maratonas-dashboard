@@ -13,7 +13,7 @@ pub fn router() -> Router<AppState> {
             get(handlers::institutions::get_structures),
         )
         .route(
-            "/institutions/{id}/events/{id}",
+            "/institutions/{institution_id}/events/{event_id}",
             get(handlers::institutions::get_event_performance_over_time),
         )
 }

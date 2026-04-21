@@ -57,13 +57,14 @@ pub(super) async fn find_structures_by_ids(
                 se.event_name,
                 se.event_level,
                 ei.date AS event_date,
+                te.id AS team_event_id,
                 i.id AS institution_id,
                 te.team_id,
-                COUNT(*)::int4 FILTER (WHERE tem.role = 'Contestant') AS team_total_members,
-                COUNT(*)::int4 FILTER (
+                COUNT(*) FILTER (WHERE tem.role = 'Contestant')::int4 AS team_total_members,
+                COUNT(*) FILTER (
                     WHERE tem.role = 'Contestant'
                     AND m.gender = 'Female'
-                ) AS team_female_members
+                )::int4 AS team_female_members
             FROM selected_events se
             JOIN competition_latest_year cly ON cly.competition_id = se.competition_id
             JOIN event_instance ei ON ei.event_id = se.event_id
@@ -79,6 +80,7 @@ pub(super) async fn find_structures_by_ids(
                 se.event_name, se.event_level,
                 ei.date,
                 i.id,
+                te.id,
                 te.team_id
         ),
         selected_organizer_rows AS (
@@ -127,10 +129,11 @@ pub(super) async fn find_structures_by_ids(
                 lyetr.competition_id,
                 lt.type AS location_type
             FROM latest_year_event_team_rows lyetr
+            JOIN team_event te ON te.id = lyetr.team_event_id
             JOIN team t ON t.id = lyetr.team_id
             JOIN institution i ON i.id = t.institution_id
             CROSS JOIN LATERAL get_location_tree(
-                COALESCE(t.campus_location_id, i.main_location_id)
+                COALESCE(te.campus_location_id, i.main_location_id)
             ) lt
         ),
         event_location_types AS (

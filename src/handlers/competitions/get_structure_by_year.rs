@@ -13,5 +13,5 @@ pub async fn get_structure_by_year(
 ) -> impl IntoResponse {
     services::competitions::get_structure_by_year(&state.repo, id, query.year)
         .await
-        .map(|structure| Json(structure))
+        .map(|results| Json(results))
 }

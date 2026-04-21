@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "docker: up db",
+      "type": "shell",
+      "command": "docker",
+      "args": ["compose", "up", "-d", "db"],
+      "problemMatcher": []
+    },
+    {
+      "label": "cargo: build debug",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["build"],
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "debug: prepare",
+      "dependsOrder": "sequence",
+      "dependsOn": ["docker: up db", "cargo: build debug"],
+      "problemMatcher": []
+    }
+  ]
+}
