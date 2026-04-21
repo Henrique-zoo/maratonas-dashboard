@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 
 use crate::{
-    dtos::teams::output::{
+    dtos::teams::responses::{
         EventSubStructure, TeamStructure, TempCompetitionSubStructure, TempTeamStructure,
     },
     errors::{AppError, AppResult},

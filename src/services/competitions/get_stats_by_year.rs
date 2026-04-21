@@ -1,5 +1,5 @@
 use crate::{
-    dtos::competitions::output::CompetitionYearStats,
+    dtos::competitions::responses::CompetitionYearStats,
     errors::{AppError, AppResult},
     repositories::CompetitionRepository,
 };

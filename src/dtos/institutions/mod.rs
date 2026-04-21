@@ -1,2 +1,2 @@
-pub mod input;
-pub mod output;
+pub mod requests;
+pub mod responses;

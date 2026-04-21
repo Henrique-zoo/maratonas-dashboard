@@ -1,5 +1,5 @@
 use crate::{
-    dtos::institutions::output::EventPerformance,
+    dtos::institutions::responses::EventPerformance,
     errors::{AppError, AppResult},
     repositories::InstitutionRepository,
 };

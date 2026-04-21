@@ -14,18 +14,15 @@ pub(super) async fn find_options_by_competitions_and_instructions(
         "SELECT DISTINCT
             t.id AS id,
             t.name AS name
-        FROM team t",
+        FROM team t ",
     );
 
     let mut first = true;
     if let Some(ids) = competition_ids {
         builder.push(
-            "JOIN team_event te
-                ON te.team_id = t.id
-            JOIN event_instance ei
-                ON te.event_instance_id = ei.id
-            JOIN event e
-                ON ei.event_id = e.id ",
+            "JOIN team_event te ON te.team_id = t.id
+            JOIN event_instance ei ON te.event_instance_id = ei.id
+            JOIN event e ON ei.event_id = e.id ",
         );
         builder
             .push("WHERE e.competition_id = ANY(")

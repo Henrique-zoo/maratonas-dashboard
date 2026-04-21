@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 
 use crate::{
-    dtos::institutions::output::{
+    dtos::institutions::responses::{
         InstitutionStructure, TeamSubStructure, TempCompetitionSubStructure, TempEventSubStructure,
         TempInstitutionStructure,
     },

@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release
-RUN rm -f target/release/deps/md_backend*
+RUN rm -f target/release/deps/backend*
 
 # Agora copia o código real e compila de verdade
 # Apenas o código do projeto será compilado, pois o Cargo verificará os timestamps dos artefatos e perceberá que as dependências já estão compiladas e atualizadas
@@ -36,8 +36,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copia apenas o binário compilado
-COPY --from=builder /app/target/release/md_backend .
+COPY --from=builder /app/target/release/backend .
 
 EXPOSE 8000
 
-CMD ["./md_backend"]
+CMD ["./backend"]

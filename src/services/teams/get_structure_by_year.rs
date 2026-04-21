@@ -1,5 +1,5 @@
 use crate::{
-    dtos::{competitions::output::TeamCompetitionYearStructure, teams::output::EventSubStructure},
+    dtos::teams::responses::{CompetitionYearStructure, EventSubStructure},
     errors::{AppError, AppResult},
     repositories::CompetitionRepository,
 };
@@ -9,7 +9,7 @@ pub async fn get_structure_by_year(
     team_id: i32,
     competition_id: i32,
     year: Option<i32>,
-) -> AppResult<TeamCompetitionYearStructure> {
+) -> AppResult<CompetitionYearStructure> {
     let year =
         year.ok_or_else(|| AppError::BadRequest("You need to specify the year.".to_string()))?;
 
@@ -18,7 +18,7 @@ pub async fn get_structure_by_year(
         .await?
         .into_iter()
         .fold(
-            TeamCompetitionYearStructure::default(),
+            CompetitionYearStructure::default(),
             |mut competition, row| {
                 competition.events.push(EventSubStructure::new(
                     row.event_id,

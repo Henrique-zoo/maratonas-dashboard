@@ -1,11 +1,13 @@
-use crate::{dtos::filters::output::Filter, errors::AppResult, repositories::OrganizerRepository};
+use crate::{
+    dtos::common::responses::OptionItem, errors::AppResult, repositories::OrganizerRepository,
+};
 
-pub async fn get_options(repo: &dyn OrganizerRepository) -> AppResult<Vec<Filter>> {
+pub async fn get_options(repo: &dyn OrganizerRepository) -> AppResult<Vec<OptionItem>> {
     let options = repo
         .find_options()
         .await?
         .into_iter()
-        .map(Filter::from)
+        .map(OptionItem::from)
         .collect();
 
     Ok(options)

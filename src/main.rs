@@ -2,7 +2,7 @@ use anyhow::Context;
 use sqlx::postgres::PgPoolOptions;
 use std::env::{self, VarError};
 
-use md_backend::*;
+use backend::*;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

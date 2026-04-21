@@ -1,8 +1,5 @@
 use crate::{
-    dtos::{
-        competitions::output::OrganizerCompetitionYearStructure,
-        organizers::output::EventSubStructure,
-    },
+    dtos::organizers::responses::{CompetitionYearStructure, EventSubStructure},
     errors::{AppError, AppResult},
     repositories::CompetitionRepository,
 };
@@ -11,7 +8,7 @@ pub async fn get_structure_by_year(
     repo: &dyn CompetitionRepository,
     competition_id: i32,
     year: Option<i32>,
-) -> AppResult<OrganizerCompetitionYearStructure> {
+) -> AppResult<CompetitionYearStructure> {
     let year =
         year.ok_or_else(|| AppError::BadRequest("You need to specify the year.".to_string()))?;
 
@@ -20,7 +17,7 @@ pub async fn get_structure_by_year(
         .await?
         .into_iter()
         .fold(
-            OrganizerCompetitionYearStructure::default(),
+            CompetitionYearStructure::default(),
             |mut competition, row| {
                 if competition.events.is_empty() {
                     competition.update(row.competition_location_types)

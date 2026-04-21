@@ -1,5 +1,5 @@
 use crate::{
-    dtos::events::output::EventYearStats,
+    dtos::events::responses::EventYearStats,
     errors::{AppError, AppResult},
     repositories::EventRepository,
 };

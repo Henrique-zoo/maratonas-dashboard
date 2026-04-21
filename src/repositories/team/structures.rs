@@ -31,7 +31,7 @@ pub(super) async fn find_structures_by_ids(
             JOIN event e ON e.id = ei.event_id
             JOIN competition c ON c.id = e.competition_id
             JOIN selected_teams st ON st.id = te.team_id
-            GROUP BY st.id, c.id
+            GROUP BY st.id, st.name, c.id
         ),
         latest_team_events AS (
             SELECT

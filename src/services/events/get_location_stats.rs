@@ -1,5 +1,5 @@
 use crate::{
-    dtos::events::output::EventLocationStats,
+    dtos::events::responses::EventLocationStats,
     errors::{AppError, AppResult},
     repositories::EventRepository,
     shared::types::LocationType,
@@ -34,10 +34,6 @@ mod tests {
         errors::AppError,
         repositories::{MockEventRepository, types::events::EventLocationStatsRow},
     };
-
-    fn assert_f32_eq(left: f32, right: f32) {
-        assert!((left - right).abs() < 1e-6);
-    }
 
     #[tokio::test]
     async fn get_location_stats_requires_location_type_and_year() {
@@ -81,7 +77,7 @@ mod tests {
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "Brazil");
-        assert_f32_eq(result[0].female_percentage, 0.25);
+        assert_eq!(result[0].female_participants, 18);
     }
 
     #[tokio::test]

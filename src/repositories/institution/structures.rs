@@ -100,7 +100,9 @@ pub(super) async fn find_structures_by_ids(
             tt.team_female_members
         FROM latest_event_instances lei
         JOIN institution_location il ON il.institution_id = lei.institution_id
-        JOIN team_totals tt ON tt.team_event_id = lei.team_event_id",
+        JOIN team_totals tt ON tt.team_event_id = lei.team_event_id
+        
+        ORDER BY lei.institution_name, lei.competition_name, lei.event_name, lei.team_name",
     )
     .bind(institution_ids)
     .fetch_all(&repo.pool)
