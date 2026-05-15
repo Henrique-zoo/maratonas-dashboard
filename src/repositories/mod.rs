@@ -1,3 +1,26 @@
+//! # `backend::repositories`
+//!
+//! ## Responsabilidade
+//! Centraliza contratos e implementação concreta de acesso a dados.
+//!
+//! ## Lógica de Implementação
+//! Declara submódulos de persistência por domínio, reexporta traits usados pelos serviços e o `Registry` que contém conexão com banco.
+//!
+//! ## Submódulos
+//! - `competition`: organiza uma parte especializada deste escopo.
+//! - `event`: organiza uma parte especializada deste escopo.
+//! - `institution`: organiza uma parte especializada deste escopo.
+//! - `organizer`: organiza uma parte especializada deste escopo.
+//! - `registry`: organiza uma parte especializada deste escopo.
+//! - `team`: organiza uma parte especializada deste escopo.
+//! - `types`: organiza uma parte especializada deste escopo.
+//!
+//! ## Funções
+//! Este arquivo não declara funções de produção neste escopo.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 // ============= SUB MÓDULOS =============
 mod competition;
 mod event;

@@ -1,8 +1,39 @@
+//! # `backend::repositories::institution::options`
+//!
+//! ## Responsabilidade
+//! Implementa consultas do repositório de `institution`.
+//!
+//! ## Lógica de Implementação
+//! Executa consultas SQL analíticas com CTEs, agregações e árvore de localização para retornar linhas tipadas com alta densidade de dados.
+//!
+//! ## Funções
+//! - `find_options_by_competitions`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     errors::AppResult,
     repositories::{Registry, types::IdNameRow},
 };
 
+/// Busca instituições disponíveis para seleção.
+///
+/// Quando `competition_ids` é `Some`, a consulta retorna apenas instituições
+/// com participação nas competições informadas. Quando é `None`, retorna todas
+/// as instituições cadastradas. Em ambos os casos o resultado é ordenado por
+/// nome.
+///
+/// # Parâmetros
+/// - `repo`: registry que fornece acesso ao pool PostgreSQL.
+/// - `competition_ids`: lista opcional de competições usada como filtro.
+///
+/// # Retorno
+/// Vetor de [`IdNameRow`] com `id` e `name` das instituições encontradas.
+///
+/// # Erros
+/// Propaga erros emitidos pelo `sqlx` durante preparação, bind ou execução da
+/// query.
 pub(super) async fn find_options_by_competitions(
     repo: &Registry,
     competition_ids: Option<Vec<i32>>,

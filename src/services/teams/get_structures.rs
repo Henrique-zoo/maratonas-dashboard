@@ -1,13 +1,55 @@
+//! # `backend::services::teams::get_structures`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `teams`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta o repositório, agrega linhas achatadas com `IndexMap` e converte para estruturas hierárquicas de resposta.
+//!
+//! ## Funções
+//! - `get_structures`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use indexmap::IndexMap;
 
 use crate::{
-    dtos::teams::output::{
+    dtos::teams::responses::{
         EventSubStructure, TeamStructure, TempCompetitionSubStructure, TempTeamStructure,
     },
     errors::{AppError, AppResult},
     repositories::TeamRepository,
 };
 
+/// Retorna estruturas de times selecionados.
+///
+/// O resultado final é organizado no formato
+/// `time -> competicoes -> eventos`.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de times.
+/// - `team_ids`: IDs dos times alvo.
+///
+/// # Retorno
+/// - `Ok(Vec<TeamStructure>)` com a estrutura agregada de cada time.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `team_ids` é `None`.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::TeamRepository;
+///
+/// async fn run(repo: &dyn TeamRepository) -> AppResult<()> {
+///     let structures = services::teams::get_structures(repo, Some(vec![1000, 1001])).await?;
+///     assert!(structures.len() <= 2);
+///     Ok(())
+/// }
+/// ```
 pub async fn get_structures(
     repo: &dyn TeamRepository,
     team_ids: Option<Vec<i32>>,
@@ -23,13 +65,7 @@ pub async fn get_structures(
             teams
                 .entry(row.team_id)
                 .or_insert_with(|| {
-                    TempTeamStructure::new(
-                        row.team_id,
-                        row.team_name,
-                        row.team_total_members,
-                        row.team_female_members,
-                        IndexMap::new(),
-                    )
+                    TempTeamStructure::new(row.team_id, row.team_name, IndexMap::new())
                 })
                 .competitions
                 .entry(row.competition_id)
@@ -40,6 +76,8 @@ pub async fn get_structures(
                         row.competition_website_url,
                         row.competition_gender_category,
                         row.competition_years,
+                        row.team_total_members,
+                        row.team_female_members,
                         IndexMap::new(),
                     )
                 })
@@ -64,4 +102,122 @@ pub async fn get_structures(
         .collect();
 
     Ok(rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    use crate::{
+        errors::AppError,
+        repositories::{MockTeamRepository, types::teams::TeamStructureRow},
+        shared::types::{GenderCategory, Scope},
+    };
+
+    fn row() -> TeamStructureRow {
+        TeamStructureRow {
+            team_id: 1000,
+            team_name: "Bit Masters".to_string(),
+            team_total_members: 3,
+            team_female_members: 1,
+            competition_id: 10,
+            competition_name: "ICPC".to_string(),
+            competition_website_url: Some("https://icpc.org".to_string()),
+            competition_gender_category: GenderCategory::Open,
+            competition_years: vec![2023, 2024],
+            event_id: 100,
+            event_name: "Regional".to_string(),
+            event_level: Some(1),
+            event_date: NaiveDate::from_ymd_opt(2024, 10, 1).unwrap(),
+            event_location: "Brazil, Sao Paulo".to_string(),
+            event_scope: Scope::Regional,
+            team_event_rank: 2,
+        }
+    }
+
+    #[tokio::test]
+    async fn get_structures_requires_team_ids() {
+        let repo = MockTeamRepository::new();
+
+        let result = get_structures(&repo, None).await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Bad request: You need to choose at least one team."
+        );
+    }
+
+    #[tokio::test]
+    async fn get_structures_aggregates_events_per_competition() {
+        let mut repo = MockTeamRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![1000]))
+            .returning(|_| {
+                Ok(vec![
+                    row(),
+                    TeamStructureRow {
+                        event_id: 101,
+                        event_name: "Final".to_string(),
+                        team_event_rank: 1,
+                        ..row()
+                    },
+                ])
+            });
+
+        let result = get_structures(&repo, Some(vec![1000])).await.unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].competitions.len(), 1);
+        assert_eq!(result[0].competitions[0].events.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_structures_supports_multiple_teams() {
+        let mut repo = MockTeamRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![1000, 1001]))
+            .returning(|_| {
+                Ok(vec![
+                    row(),
+                    TeamStructureRow {
+                        team_id: 1001,
+                        team_name: "Zero Day".to_string(),
+                        event_id: 200,
+                        event_name: "Nacional".to_string(),
+                        ..row()
+                    },
+                ])
+            });
+
+        let result = get_structures(&repo, Some(vec![1000, 1001])).await.unwrap();
+
+        assert_eq!(result.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_structures_returns_empty_when_repository_returns_empty() {
+        let mut repo = MockTeamRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![1000]))
+            .returning(|_| Ok(vec![]));
+
+        let result = get_structures(&repo, Some(vec![1000])).await.unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_structures_propagates_repository_error() {
+        let mut repo = MockTeamRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![1000]))
+            .returning(|_| Err(AppError::BadRequest("repo fail".to_string())));
+
+        let result = get_structures(&repo, Some(vec![1000])).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Bad request: repo fail");
+    }
 }

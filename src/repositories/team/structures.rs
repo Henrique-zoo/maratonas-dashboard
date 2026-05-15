@@ -1,8 +1,39 @@
+//! # `backend::repositories::team::structures`
+//!
+//! ## Responsabilidade
+//! Implementa consultas do repositório de `team`.
+//!
+//! ## Lógica de Implementação
+//! Executa consultas SQL analíticas com CTEs, agregações e árvore de localização para retornar linhas tipadas com alta densidade de dados.
+//!
+//! ## Funções
+//! - `find_structures_by_ids`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     errors::AppResult,
     repositories::{Registry, types::teams::TeamStructureRow},
 };
 
+/// Busca linhas para montar a estrutura pública de times.
+///
+/// Para cada time informado, a query identifica as competições em que ele
+/// participou, calcula os anos disponíveis e considera o último ano de cada
+/// competição para retornar os eventos disputados e os totais de membros.
+///
+/// # Parâmetros
+/// - `repo`: registry que fornece acesso ao pool PostgreSQL.
+/// - `team_ids`: times que devem compor o resultado.
+///
+/// # Retorno
+/// Vetor de [`TeamStructureRow`] ordenado por time, competição, ranking, nível
+/// e nome do evento.
+///
+/// # Erros
+/// Propaga erros emitidos pelo `sqlx` durante preparação, bind ou execução da
+/// query.
 pub(super) async fn find_structures_by_ids(
     repo: &Registry,
     team_ids: Vec<i32>,
@@ -31,7 +62,7 @@ pub(super) async fn find_structures_by_ids(
             JOIN event e ON e.id = ei.event_id
             JOIN competition c ON c.id = e.competition_id
             JOIN selected_teams st ON st.id = te.team_id
-            GROUP BY st.id, c.id
+            GROUP BY st.id, st.name, c.id
         ),
         latest_team_events AS (
             SELECT

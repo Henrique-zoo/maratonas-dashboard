@@ -1,3 +1,18 @@
+//! # `backend::repositories::competition::stats`
+//!
+//! ## Responsabilidade
+//! Implementa consultas do repositório de `competition`.
+//!
+//! ## Lógica de Implementação
+//! Executa consultas SQL analíticas com CTEs, agregações e árvore de localização para retornar linhas tipadas com alta densidade de dados.
+//!
+//! ## Funções
+//! - `find_location_stats_by_competition`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
+//! - `find_competition_stats_by_year`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     errors::AppResult,
     repositories::{
@@ -7,6 +22,26 @@ use crate::{
     shared::types::LocationType,
 };
 
+/// Calcula estatísticas de uma competição agrupadas por tipo de localização.
+///
+/// A query percorre participações em eventos da competição no ano informado,
+/// resolve a árvore de localização com `get_location_tree` e agrega totais por
+/// localização do tipo solicitado.
+///
+/// # Parâmetros
+/// - `repo`: registry que fornece acesso ao pool PostgreSQL.
+/// - `competition_id`: competição usada como recorte principal.
+/// - `location_type`: nível da hierarquia de localização usado no agrupamento.
+/// - `year`: ano de realização dos eventos considerados.
+///
+/// # Retorno
+/// Linhas de [`CompetitionLocationStatsRow`] ordenadas pelo nome da
+/// localização, com totais de instituições, times, participantes e
+/// participantes femininas.
+///
+/// # Erros
+/// Propaga erros emitidos pelo `sqlx` durante preparação, bind ou execução da
+/// query.
 pub(super) async fn find_location_stats_by_competition(
     repo: &Registry,
     competition_id: i32,
@@ -34,11 +69,11 @@ pub(super) async fn find_location_stats_by_competition(
             JOIN (
                 SELECT
                     tem.team_event_id,
-                    COUNT(*) FILTER (WHERE tem.role = 'Contestant') AS total_participants,
+                    COUNT(*) FILTER (WHERE tem.role = 'Contestant')::int4 AS total_participants,
                     COUNT(*) FILTER (
                         WHERE tem.role = 'Contestant'
                         AND m.gender = 'Female'
-                    ) AS female_participants
+                    )::int4 AS female_participants
                 FROM team_event_member tem
                 JOIN member m ON m.id = tem.member_id
                 GROUP BY tem.team_event_id
@@ -60,6 +95,23 @@ pub(super) async fn find_location_stats_by_competition(
     Ok(rows)
 }
 
+/// Calcula os totais anuais consolidados de uma competição.
+///
+/// A query considera todos os eventos da competição no ano informado e agrega
+/// instituições, times e participantes a partir das participações registradas
+/// em `team_event`.
+///
+/// # Parâmetros
+/// - `repo`: registry que fornece acesso ao pool PostgreSQL.
+/// - `competition_id`: competição usada como recorte principal.
+/// - `year`: ano de realização dos eventos considerados.
+///
+/// # Retorno
+/// Uma [`CompetitionYearStatsRow`] com os totais consolidados do ano.
+///
+/// # Erros
+/// Propaga erros emitidos pelo `sqlx`, inclusive erro de linha ausente caso a
+/// consulta não produza resultado para o par `(competition_id, year)`.
 pub(super) async fn find_competition_stats_by_year(
     repo: &Registry,
     competition_id: i32,

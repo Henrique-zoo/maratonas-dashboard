@@ -1,10 +1,62 @@
+//! # `backend::services::competitions::get_location_stats`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `competitions`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta traits de repositório e converte dados para DTOs de resposta.
+//!
+//! ## Funções
+//! - `get_location_stats`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
-    dtos::competitions::output::CompetitionYearLocationStats,
+    dtos::competitions::responses::CompetitionYearLocationStats,
     errors::{AppError, AppResult},
     repositories::CompetitionRepository,
     shared::types::LocationType,
 };
 
+/// Retorna estatísticas de uma competição agregadas por recorte geográfico.
+///
+/// A função exige o `location_type` e o `year`, consulta o repositório e
+/// converte as linhas agregadas para `CompetitionYearLocationStats`.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de competições.
+/// - `competition_id`: ID da competição alvo.
+/// - `location_type`: tipo de localização para agregação (ex.: país, estado).
+/// - `year`: ano de referência.
+///
+/// # Retorno
+/// - `Ok(Vec<CompetitionYearLocationStats>)` com os totais por localidade.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `location_type` ou `year` não são
+///   informados.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::CompetitionRepository;
+/// use backend::shared::types::LocationType;
+///
+/// async fn run(repo: &dyn CompetitionRepository) -> AppResult<()> {
+///     let stats = services::competitions::get_location_stats(
+///         repo,
+///         10,
+///         Some(LocationType::Country),
+///         Some(2024),
+///     )
+///     .await?;
+///     println!("Locais retornados: {}", stats.len());
+///     Ok(())
+/// }
+/// ```
 pub async fn get_location_stats(
     repo: &dyn CompetitionRepository,
     competition_id: i32,
@@ -25,4 +77,87 @@ pub async fn get_location_stats(
         .collect();
 
     Ok(stats)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::{
+        errors::AppError,
+        repositories::{
+            MockCompetitionRepository, types::competitions::CompetitionLocationStatsRow,
+        },
+    };
+
+    #[tokio::test]
+    async fn get_location_stats_requires_location_type_and_year() {
+        let repo = MockCompetitionRepository::new();
+
+        assert!(
+            get_location_stats(&repo, 10, None, Some(2024))
+                .await
+                .is_err()
+        );
+        assert!(
+            get_location_stats(&repo, 10, Some(LocationType::Country), None)
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn get_location_stats_maps_rows_to_dto() {
+        let mut repo = MockCompetitionRepository::new();
+        repo.expect_find_location_stats_by_competition()
+            .with(
+                mockall::predicate::eq(10),
+                mockall::predicate::eq(LocationType::Country),
+                mockall::predicate::eq(2024),
+            )
+            .returning(|_, _, _| {
+                Ok(vec![CompetitionLocationStatsRow {
+                    location_id: 1,
+                    location_name: "Brazil".to_string(),
+                    total_institutions: 20,
+                    total_teams: 40,
+                    total_participants: 120,
+                    female_participants: 36,
+                }])
+            });
+
+        let result = get_location_stats(&repo, 10, Some(LocationType::Country), Some(2024))
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, 1);
+        assert_eq!(result[0].name, "Brazil");
+        assert_eq!(result[0].female_participants, 36);
+    }
+
+    #[tokio::test]
+    async fn get_location_stats_returns_empty_when_repository_returns_empty() {
+        let mut repo = MockCompetitionRepository::new();
+        repo.expect_find_location_stats_by_competition()
+            .returning(|_, _, _| Ok(vec![]));
+
+        let result = get_location_stats(&repo, 10, Some(LocationType::Country), Some(2024))
+            .await
+            .unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_location_stats_propagates_repository_error() {
+        let mut repo = MockCompetitionRepository::new();
+        repo.expect_find_location_stats_by_competition()
+            .returning(|_, _, _| Err(AppError::BadRequest("repo fail".to_string())));
+
+        let result = get_location_stats(&repo, 10, Some(LocationType::Country), Some(2024)).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Bad request: repo fail");
+    }
 }

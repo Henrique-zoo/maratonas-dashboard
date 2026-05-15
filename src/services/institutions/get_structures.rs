@@ -1,7 +1,21 @@
+//! # `backend::services::institutions::get_structures`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `institutions`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta o repositório, agrega linhas achatadas com `IndexMap` e converte para estruturas hierárquicas de resposta.
+//!
+//! ## Funções
+//! - `get_structures`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use indexmap::IndexMap;
 
 use crate::{
-    dtos::institutions::output::{
+    dtos::institutions::responses::{
         InstitutionStructure, TeamSubStructure, TempCompetitionSubStructure, TempEventSubStructure,
         TempInstitutionStructure,
     },
@@ -9,6 +23,34 @@ use crate::{
     repositories::InstitutionRepository,
 };
 
+/// Retorna estruturas detalhadas de instituições selecionadas.
+///
+/// O resultado é agregado no formato
+/// `instituicao -> competicoes -> eventos -> times`.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de instituições.
+/// - `institution_ids`: IDs das instituições desejadas.
+///
+/// # Retorno
+/// - `Ok(Vec<InstitutionStructure>)` com as estruturas montadas.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `institution_ids` é `None`.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::InstitutionRepository;
+///
+/// async fn run(repo: &dyn InstitutionRepository) -> AppResult<()> {
+///     let structures = services::institutions::get_structures(repo, Some(vec![5, 6])).await?;
+///     println!("Instituicoes retornadas: {}", structures.len());
+///     Ok(())
+/// }
+/// ```
 pub async fn get_structures(
     repo: &dyn InstitutionRepository,
     institution_ids: Option<Vec<i32>>,
@@ -74,4 +116,126 @@ pub async fn get_structures(
         .collect();
 
     Ok(structures)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    use crate::{
+        errors::AppError,
+        repositories::{MockInstitutionRepository, types::institutions::InstitutionStructureRow},
+        shared::types::Scope,
+    };
+
+    fn row() -> InstitutionStructureRow {
+        InstitutionStructureRow {
+            institution_id: 5,
+            institution_name: "UFRJ".to_string(),
+            institution_short_name: Some("UFRJ".to_string()),
+            institution_location: "Rio de Janeiro".to_string(),
+            competition_id: 10,
+            competition_name: "ICPC".to_string(),
+            competition_website_url: Some("https://icpc.org".to_string()),
+            event_id: 100,
+            event_name: "Regional".to_string(),
+            event_date: NaiveDate::from_ymd_opt(2024, 10, 1).unwrap(),
+            event_level: Some(1),
+            event_scope: Scope::Regional,
+            team_id: 1000,
+            team_name: "Rio Coders".to_string(),
+            team_event_rank: 2,
+            team_total_members: 3,
+            team_female_members: 1,
+        }
+    }
+
+    #[tokio::test]
+    async fn get_structures_requires_ids() {
+        let repo = MockInstitutionRepository::new();
+
+        let result = get_structures(&repo, None).await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Bad request: You need to choose at least one institution."
+        );
+    }
+
+    #[tokio::test]
+    async fn get_structures_groups_teams_under_event() {
+        let mut repo = MockInstitutionRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![5]))
+            .returning(|_| {
+                Ok(vec![
+                    row(),
+                    InstitutionStructureRow {
+                        team_id: 1001,
+                        team_name: "Rio Bits".to_string(),
+                        team_event_rank: 4,
+                        ..row()
+                    },
+                ])
+            });
+
+        let result = get_structures(&repo, Some(vec![5])).await.unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].competitions.len(), 1);
+        assert_eq!(result[0].competitions[0].events.len(), 1);
+        assert_eq!(result[0].competitions[0].events[0].teams.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_structures_supports_multiple_institutions() {
+        let mut repo = MockInstitutionRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![5, 6]))
+            .returning(|_| {
+                Ok(vec![
+                    row(),
+                    InstitutionStructureRow {
+                        institution_id: 6,
+                        institution_name: "UFPE".to_string(),
+                        institution_short_name: Some("UFPE".to_string()),
+                        institution_location: "Recife".to_string(),
+                        team_id: 2000,
+                        team_name: "Recife Coders".to_string(),
+                        ..row()
+                    },
+                ])
+            });
+
+        let result = get_structures(&repo, Some(vec![5, 6])).await.unwrap();
+
+        assert_eq!(result.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_structures_returns_empty_when_repository_returns_empty() {
+        let mut repo = MockInstitutionRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![5]))
+            .returning(|_| Ok(vec![]));
+
+        let result = get_structures(&repo, Some(vec![5])).await.unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_structures_propagates_repository_error() {
+        let mut repo = MockInstitutionRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![5]))
+            .returning(|_| Err(AppError::BadRequest("repo fail".to_string())));
+
+        let result = get_structures(&repo, Some(vec![5])).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Bad request: repo fail");
+    }
 }

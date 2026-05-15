@@ -1,5 +1,5 @@
 [package]
-name = "md_backend"
+name = "backend"
 version = "0.1.0"
 authors = ["Henrique Morcelles Salum <morcelleshenrique@gmail.com>"]
 edition = "2024"
@@ -21,3 +21,4 @@ indexmap = "2"
 [dev-dependencies]
 mockall = "0.12"
 async-trait = "0.1"
+serde_urlencoded = "0.7"
