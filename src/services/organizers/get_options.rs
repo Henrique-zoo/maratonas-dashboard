@@ -1,7 +1,47 @@
+//! # `backend::services::organizers::get_options`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `organizers`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta traits de repositório e converte dados para DTOs de resposta.
+//!
+//! ## Funções
+//! - `get_options`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     dtos::common::responses::OptionItem, errors::AppResult, repositories::OrganizerRepository,
 };
 
+/// Lista opções de organizadores para filtros da API.
+///
+/// Consulta o repositório de organizadores e converte o resultado para o DTO
+/// comum `OptionItem`.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de organizadores.
+///
+/// # Retorno
+/// - `Ok(Vec<OptionItem>)` com pares de ID e nome dos organizadores.
+///
+/// # Erros
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::OrganizerRepository;
+///
+/// async fn run(repo: &dyn OrganizerRepository) -> AppResult<()> {
+///     let options = services::organizers::get_options(repo).await?;
+///     assert!(options.len() <= 1000);
+///     Ok(())
+/// }
+/// ```
 pub async fn get_options(repo: &dyn OrganizerRepository) -> AppResult<Vec<OptionItem>> {
     let options = repo
         .find_options()

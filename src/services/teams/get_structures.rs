@@ -1,3 +1,17 @@
+//! # `backend::services::teams::get_structures`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `teams`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta o repositório, agrega linhas achatadas com `IndexMap` e converte para estruturas hierárquicas de resposta.
+//!
+//! ## Funções
+//! - `get_structures`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use indexmap::IndexMap;
 
 use crate::{
@@ -8,6 +22,34 @@ use crate::{
     repositories::TeamRepository,
 };
 
+/// Retorna estruturas de times selecionados.
+///
+/// O resultado final é organizado no formato
+/// `time -> competicoes -> eventos`.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de times.
+/// - `team_ids`: IDs dos times alvo.
+///
+/// # Retorno
+/// - `Ok(Vec<TeamStructure>)` com a estrutura agregada de cada time.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `team_ids` é `None`.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::TeamRepository;
+///
+/// async fn run(repo: &dyn TeamRepository) -> AppResult<()> {
+///     let structures = services::teams::get_structures(repo, Some(vec![1000, 1001])).await?;
+///     assert!(structures.len() <= 2);
+///     Ok(())
+/// }
+/// ```
 pub async fn get_structures(
     repo: &dyn TeamRepository,
     team_ids: Option<Vec<i32>>,
@@ -68,6 +110,7 @@ mod tests {
     use chrono::NaiveDate;
 
     use crate::{
+        errors::AppError,
         repositories::{MockTeamRepository, types::teams::TeamStructureRow},
         shared::types::{GenderCategory, Scope},
     };
@@ -151,5 +194,30 @@ mod tests {
         let result = get_structures(&repo, Some(vec![1000, 1001])).await.unwrap();
 
         assert_eq!(result.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_structures_returns_empty_when_repository_returns_empty() {
+        let mut repo = MockTeamRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![1000]))
+            .returning(|_| Ok(vec![]));
+
+        let result = get_structures(&repo, Some(vec![1000])).await.unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_structures_propagates_repository_error() {
+        let mut repo = MockTeamRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![1000]))
+            .returning(|_| Err(AppError::BadRequest("repo fail".to_string())));
+
+        let result = get_structures(&repo, Some(vec![1000])).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Bad request: repo fail");
     }
 }

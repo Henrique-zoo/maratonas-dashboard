@@ -1,3 +1,17 @@
+//! # `backend::services::institutions::get_structures`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `institutions`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta o repositório, agrega linhas achatadas com `IndexMap` e converte para estruturas hierárquicas de resposta.
+//!
+//! ## Funções
+//! - `get_structures`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use indexmap::IndexMap;
 
 use crate::{
@@ -9,6 +23,34 @@ use crate::{
     repositories::InstitutionRepository,
 };
 
+/// Retorna estruturas detalhadas de instituições selecionadas.
+///
+/// O resultado é agregado no formato
+/// `instituicao -> competicoes -> eventos -> times`.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de instituições.
+/// - `institution_ids`: IDs das instituições desejadas.
+///
+/// # Retorno
+/// - `Ok(Vec<InstitutionStructure>)` com as estruturas montadas.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `institution_ids` é `None`.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::InstitutionRepository;
+///
+/// async fn run(repo: &dyn InstitutionRepository) -> AppResult<()> {
+///     let structures = services::institutions::get_structures(repo, Some(vec![5, 6])).await?;
+///     println!("Instituicoes retornadas: {}", structures.len());
+///     Ok(())
+/// }
+/// ```
 pub async fn get_structures(
     repo: &dyn InstitutionRepository,
     institution_ids: Option<Vec<i32>>,
@@ -82,6 +124,7 @@ mod tests {
     use chrono::NaiveDate;
 
     use crate::{
+        errors::AppError,
         repositories::{MockInstitutionRepository, types::institutions::InstitutionStructureRow},
         shared::types::Scope,
     };
@@ -169,5 +212,30 @@ mod tests {
         let result = get_structures(&repo, Some(vec![5, 6])).await.unwrap();
 
         assert_eq!(result.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_structures_returns_empty_when_repository_returns_empty() {
+        let mut repo = MockInstitutionRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![5]))
+            .returning(|_| Ok(vec![]));
+
+        let result = get_structures(&repo, Some(vec![5])).await.unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_structures_propagates_repository_error() {
+        let mut repo = MockInstitutionRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![5]))
+            .returning(|_| Err(AppError::BadRequest("repo fail".to_string())));
+
+        let result = get_structures(&repo, Some(vec![5])).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Bad request: repo fail");
     }
 }

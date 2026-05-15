@@ -1,3 +1,17 @@
+//! # `backend::services::competitions::get_structure_by_year`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `competitions`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta o repositório, agrega linhas achatadas com `IndexMap` e converte para estruturas hierárquicas de resposta.
+//!
+//! ## Funções
+//! - `get_structure_by_year`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use indexmap::IndexMap;
 
 use crate::{
@@ -9,6 +23,36 @@ use crate::{
     repositories::CompetitionRepository,
 };
 
+/// Retorna a estrutura de uma competição em um ano específico.
+///
+/// A função valida o ano, busca as linhas no repositório e agrega os dados em
+/// uma estrutura no formato `eventos -> times` com metadados da competição.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de competições.
+/// - `competition_id`: ID da competição alvo.
+/// - `year`: ano de referência.
+///
+/// # Retorno
+/// - `Ok(CompetitionYearStructure)` com tipos de localização da competição e
+///   eventos do ano solicitado.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `year` é `None`.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::CompetitionRepository;
+///
+/// async fn run(repo: &dyn CompetitionRepository) -> AppResult<()> {
+///     let structure = services::competitions::get_structure_by_year(repo, 10, Some(2024)).await?;
+///     println!("Eventos encontrados: {}", structure.events.len());
+///     Ok(())
+/// }
+/// ```
 pub async fn get_structure_by_year(
     repo: &dyn CompetitionRepository,
     competition_id: i32,
@@ -70,6 +114,7 @@ mod tests {
     use chrono::NaiveDate;
 
     use crate::{
+        errors::AppError,
         repositories::{
             MockCompetitionRepository, types::competitions::CompetitionYearStructureRow,
         },
@@ -144,5 +189,18 @@ mod tests {
 
         assert!(result.location_types.is_empty());
         assert!(result.events.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_structure_by_year_propagates_repository_error() {
+        let mut repo = MockCompetitionRepository::new();
+        repo.expect_find_structure_by_year()
+            .with(mockall::predicate::eq(10), mockall::predicate::eq(2024))
+            .returning(|_, _| Err(AppError::BadRequest("repo fail".to_string())));
+
+        let result = get_structure_by_year(&repo, 10, Some(2024)).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Bad request: repo fail");
     }
 }

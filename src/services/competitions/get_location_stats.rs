@@ -1,3 +1,17 @@
+//! # `backend::services::competitions::get_location_stats`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `competitions`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta traits de repositório e converte dados para DTOs de resposta.
+//!
+//! ## Funções
+//! - `get_location_stats`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     dtos::competitions::responses::CompetitionYearLocationStats,
     errors::{AppError, AppResult},
@@ -5,6 +19,44 @@ use crate::{
     shared::types::LocationType,
 };
 
+/// Retorna estatísticas de uma competição agregadas por recorte geográfico.
+///
+/// A função exige o `location_type` e o `year`, consulta o repositório e
+/// converte as linhas agregadas para `CompetitionYearLocationStats`.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de competições.
+/// - `competition_id`: ID da competição alvo.
+/// - `location_type`: tipo de localização para agregação (ex.: país, estado).
+/// - `year`: ano de referência.
+///
+/// # Retorno
+/// - `Ok(Vec<CompetitionYearLocationStats>)` com os totais por localidade.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `location_type` ou `year` não são
+///   informados.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::CompetitionRepository;
+/// use backend::shared::types::LocationType;
+///
+/// async fn run(repo: &dyn CompetitionRepository) -> AppResult<()> {
+///     let stats = services::competitions::get_location_stats(
+///         repo,
+///         10,
+///         Some(LocationType::Country),
+///         Some(2024),
+///     )
+///     .await?;
+///     println!("Locais retornados: {}", stats.len());
+///     Ok(())
+/// }
+/// ```
 pub async fn get_location_stats(
     repo: &dyn CompetitionRepository,
     competition_id: i32,

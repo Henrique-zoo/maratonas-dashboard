@@ -1,9 +1,53 @@
+//! # `backend::services::events::get_stats_by_year`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `events`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta traits de repositório e converte dados para DTOs de resposta.
+//!
+//! ## Funções
+//! - `get_stats_by_year`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     dtos::events::responses::EventYearStats,
     errors::{AppError, AppResult},
     repositories::EventRepository,
 };
 
+/// Retorna os totais anuais de um evento.
+///
+/// Valida o ano de entrada e converte o resultado do repositório para o DTO
+/// `EventYearStats`.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de eventos.
+/// - `event_id`: ID do evento.
+/// - `year`: ano de referência.
+///
+/// # Retorno
+/// - `Ok(EventYearStats)` com totais anuais de instituições, times e
+///   participantes.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `year` não é informado.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::EventRepository;
+///
+/// async fn run(repo: &dyn EventRepository) -> AppResult<()> {
+///     let stats = services::events::get_stats_by_year(repo, 20, Some(2024)).await?;
+///     println!("Participantes: {}", stats.total_participants);
+///     Ok(())
+/// }
+/// ```
 pub async fn get_stats_by_year(
     repo: &dyn EventRepository,
     event_id: i32,

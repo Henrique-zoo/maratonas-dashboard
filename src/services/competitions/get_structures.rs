@@ -1,3 +1,17 @@
+//! # `backend::services::competitions::get_structures`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `competitions`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta o repositório, agrega linhas achatadas com `IndexMap` e converte para estruturas hierárquicas de resposta.
+//!
+//! ## Funções
+//! - `get_structures`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use indexmap::IndexMap;
 
 use crate::{
@@ -8,6 +22,36 @@ use crate::{
     repositories::CompetitionRepository,
 };
 
+/// Retorna a estrutura hierárquica das competições solicitadas.
+///
+/// A função valida se ao menos um identificador de competição foi informado,
+/// consulta o repositório e reorganiza as linhas achatadas em uma árvore no
+/// formato `competicao -> eventos -> times`.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de competições.
+/// - `competition_ids`: lista de IDs de competição a serem buscadas.
+///
+/// # Retorno
+/// - `Ok(Vec<CompetitionStructure>)` com as estruturas agregadas para cada
+///   competição encontrada.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `competition_ids` é `None`.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::CompetitionRepository;
+///
+/// async fn run(repo: &dyn CompetitionRepository) -> AppResult<()> {
+///     let structures = services::competitions::get_structures(repo, Some(vec![10, 11])).await?;
+///     assert!(!structures.is_empty());
+///     Ok(())
+/// }
+/// ```
 pub async fn get_structures(
     repo: &dyn CompetitionRepository,
     competition_ids: Option<Vec<i32>>,
@@ -77,6 +121,7 @@ mod tests {
     use chrono::NaiveDate;
 
     use crate::{
+        errors::AppError,
         repositories::{MockCompetitionRepository, types::competitions::CompetitionStructureRow},
         shared::types::{GenderCategory, LocationType},
     };
@@ -178,5 +223,18 @@ mod tests {
         let result = get_structures(&repo, Some(vec![10])).await.unwrap();
 
         assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_structures_propagates_repository_error() {
+        let mut repo = MockCompetitionRepository::new();
+        repo.expect_find_structures_by_ids()
+            .with(mockall::predicate::eq(vec![10]))
+            .returning(|_| Err(AppError::BadRequest("repo fail".to_string())));
+
+        let result = get_structures(&repo, Some(vec![10])).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Bad request: repo fail");
     }
 }

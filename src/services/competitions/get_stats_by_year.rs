@@ -1,9 +1,53 @@
+//! # `backend::services::competitions::get_stats_by_year`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `competitions`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta traits de repositório e converte dados para DTOs de resposta.
+//!
+//! ## Funções
+//! - `get_stats_by_year`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     dtos::competitions::responses::CompetitionYearStats,
     errors::{AppError, AppResult},
     repositories::CompetitionRepository,
 };
 
+/// Retorna estatísticas anuais de uma competição.
+///
+/// Exige o ano de referência e converte a linha estatística do repositório
+/// para o DTO de resposta do domínio de competições.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de competições.
+/// - `competition_id`: ID da competição alvo.
+/// - `year`: ano de referência para o cálculo das estatísticas.
+///
+/// # Retorno
+/// - `Ok(CompetitionYearStats)` com totais de instituições, times e
+///   participantes no ano informado.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `year` é `None`.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::CompetitionRepository;
+///
+/// async fn run(repo: &dyn CompetitionRepository) -> AppResult<()> {
+///     let stats = services::competitions::get_stats_by_year(repo, 10, Some(2024)).await?;
+///     println!("Total de times: {}", stats.total_teams);
+///     Ok(())
+/// }
+/// ```
 pub async fn get_stats_by_year(
     repo: &dyn CompetitionRepository,
     competition_id: i32,

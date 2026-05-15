@@ -1,7 +1,50 @@
+//! # `backend::services::competitions::get_options`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `competitions`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta traits de repositório e converte dados para DTOs de resposta.
+//!
+//! ## Funções
+//! - `get_options`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     dtos::common::responses::OptionItem, errors::AppResult, repositories::CompetitionRepository,
 };
 
+/// Lista opções de competições para preenchimento de filtros da API.
+///
+/// Opcionalmente filtra o resultado pelos organizadores recebidos e converte
+/// o resultado para `OptionItem`.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de competições.
+/// - `organizer_ids`: IDs de organizadores usados como filtro opcional.
+///
+/// # Retorno
+/// - `Ok(Vec<OptionItem>)` com pares de identificador e nome.
+///
+/// # Erros
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::CompetitionRepository;
+///
+/// async fn run(repo: &dyn CompetitionRepository) -> AppResult<()> {
+///     let options = services::competitions::get_options(repo, Some(vec![1, 2])).await?;
+///     for item in options {
+///         println!("{} - {}", item.id, item.name);
+///     }
+///     Ok(())
+/// }
+/// ```
 pub async fn get_options(
     repo: &dyn CompetitionRepository,
     organizer_ids: Option<Vec<i32>>,

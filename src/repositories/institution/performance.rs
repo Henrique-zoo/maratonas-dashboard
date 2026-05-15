@@ -1,8 +1,41 @@
+//! # `backend::repositories::institution::performance`
+//!
+//! ## Responsabilidade
+//! Implementa consultas do repositório de `institution`.
+//!
+//! ## Lógica de Implementação
+//! Executa consultas SQL analíticas com CTEs, agregações e árvore de localização para retornar linhas tipadas com alta densidade de dados.
+//!
+//! ## Funções
+//! - `find_event_performance_over_time`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     errors::AppResult,
     repositories::{Registry, types::institutions::EventPerformanceRow},
 };
 
+/// Busca a série histórica de desempenho de uma instituição em um evento.
+///
+/// Para cada ano no intervalo informado, a query calcula o melhor ranking da
+/// instituição, identifica o time responsável por esse melhor resultado e
+/// calcula a média de rankings dos times da instituição naquele ano.
+///
+/// # Parâmetros
+/// - `repo`: registry que fornece acesso ao pool PostgreSQL.
+/// - `institution_id`: instituição analisada.
+/// - `event_id`: evento usado como recorte.
+/// - `start_year`: primeiro ano incluído na consulta.
+/// - `end_year`: último ano incluído na consulta.
+///
+/// # Retorno
+/// Vetor de [`EventPerformanceRow`] ordenado por ano.
+///
+/// # Erros
+/// Propaga erros emitidos pelo `sqlx` durante preparação, bind ou execução da
+/// query.
 pub(super) async fn find_event_performance_over_time(
     repo: &Registry,
     institution_id: i32,

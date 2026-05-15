@@ -1,8 +1,41 @@
+//! # `backend::repositories::institution::structures`
+//!
+//! ## Responsabilidade
+//! Implementa consultas do repositório de `institution`.
+//!
+//! ## Lógica de Implementação
+//! Executa consultas SQL analíticas com CTEs, agregações e árvore de localização para retornar linhas tipadas com alta densidade de dados.
+//!
+//! ## Funções
+//! - `find_structures_by_ids`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     errors::AppResult,
     repositories::{Registry, types::institutions::InstitutionStructureRow},
 };
 
+/// Busca linhas para montar a estrutura pública de instituições.
+///
+/// A query seleciona os times das instituições informadas, resolve a
+/// localização principal da instituição e considera o último ano disponível de
+/// cada competição relacionada. O resultado denormalizado é consumido pelo
+/// service para montar a árvore `instituição -> competições -> eventos ->
+/// times`.
+///
+/// # Parâmetros
+/// - `repo`: registry que fornece acesso ao pool PostgreSQL.
+/// - `institution_ids`: instituições que devem compor o resultado.
+///
+/// # Retorno
+/// Vetor de [`InstitutionStructureRow`] ordenado por instituição, competição,
+/// evento e time.
+///
+/// # Erros
+/// Propaga erros emitidos pelo `sqlx` durante preparação, bind ou execução da
+/// query.
 pub(super) async fn find_structures_by_ids(
     repo: &Registry,
     institution_ids: Vec<i32>,

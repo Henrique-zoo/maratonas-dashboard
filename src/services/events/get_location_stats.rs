@@ -1,3 +1,17 @@
+//! # `backend::services::events::get_location_stats`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `events`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta traits de repositório e converte dados para DTOs de resposta.
+//!
+//! ## Funções
+//! - `get_location_stats`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     dtos::events::responses::EventLocationStats,
     errors::{AppError, AppResult},
@@ -5,6 +19,44 @@ use crate::{
     shared::types::LocationType,
 };
 
+/// Retorna estatísticas de um evento agrupadas por localização.
+///
+/// Exige tipo de localização e ano, delega a consulta ao repositório e mapeia
+/// cada linha para o DTO `EventLocationStats`.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de eventos.
+/// - `event_id`: ID do evento.
+/// - `location_type`: nível geográfico para agregação.
+/// - `year`: ano de referência.
+///
+/// # Retorno
+/// - `Ok(Vec<EventLocationStats>)` com totais por localidade.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `location_type` ou `year` são
+///   ausentes.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::EventRepository;
+/// use backend::shared::types::LocationType;
+///
+/// async fn run(repo: &dyn EventRepository) -> AppResult<()> {
+///     let stats = services::events::get_location_stats(
+///         repo,
+///         20,
+///         Some(LocationType::Country),
+///         Some(2024),
+///     )
+///     .await?;
+///     assert!(stats.iter().all(|row| row.total_teams >= 0));
+///     Ok(())
+/// }
+/// ```
 pub async fn get_location_stats(
     repo: &dyn EventRepository,
     event_id: i32,

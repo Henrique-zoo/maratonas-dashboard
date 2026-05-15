@@ -1,3 +1,17 @@
+//! # `backend::controllers::competitions::get_location_stats`
+//!
+//! ## Responsabilidade
+//! Implementa handlers HTTP do domínio `competitions`.
+//!
+//! ## Lógica de Implementação
+//! Extrai parâmetros (`Path`, `Query` e `State`), delega ao service correspondente e transforma o resultado em `Json`/`IntoResponse`.
+//!
+//! ## Funções
+//! - `get_location_stats`: Handler HTTP que extrai dados da requisição, delega ao service e retorna payload serializável.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -10,6 +24,19 @@ use crate::{
     services,
 };
 
+/// Retorna estatísticas de competição agrupadas por localização.
+///
+/// Extrai o ID da competição do path e `location_type`/`year` da query string,
+/// delegando a validação e consulta ao service de competições.
+///
+/// # Parâmetros
+/// - `state`: estado compartilhado da aplicação, contendo o registry.
+/// - `path`: path com o identificador da competição.
+/// - `query`: query com tipo de localização e ano.
+///
+/// # Retorno
+/// Resposta JSON com estatísticas por localização ou erro convertido por
+/// `IntoResponse`.
 pub async fn get_location_stats(
     State(state): State<AppState>,
     Path(path): Path<IdPath>,
@@ -22,5 +49,5 @@ pub async fn get_location_stats(
         query.year,
     )
     .await
-    .map(|stats| Json(stats))
+    .map(Json)
 }

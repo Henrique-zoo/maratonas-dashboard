@@ -1,9 +1,52 @@
+//! # `backend::services::organizers::get_structure_by_year`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `organizers`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta o repositório, agrega linhas achatadas com `IndexMap` e converte para estruturas hierárquicas de resposta.
+//!
+//! ## Funções
+//! - `get_structure_by_year`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     dtos::organizers::responses::{CompetitionYearStructure, EventSubStructure},
     errors::{AppError, AppResult},
     repositories::CompetitionRepository,
 };
 
+/// Retorna a estrutura de eventos de uma competição em um ano.
+///
+/// Este caso de uso é exposto no domínio de organizadores para detalhar a
+/// competição selecionada, incluindo métricas por evento.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de competições.
+/// - `competition_id`: ID da competição.
+/// - `year`: ano de referência.
+///
+/// # Retorno
+/// - `Ok(CompetitionYearStructure)` com tipos de localização e eventos do ano.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `year` é `None`.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::CompetitionRepository;
+///
+/// async fn run(repo: &dyn CompetitionRepository) -> AppResult<()> {
+///     let structure = services::organizers::get_structure_by_year(repo, 10, Some(2024)).await?;
+///     println!("Eventos: {}", structure.events.len());
+///     Ok(())
+/// }
+/// ```
 pub async fn get_structure_by_year(
     repo: &dyn CompetitionRepository,
     competition_id: i32,
@@ -28,6 +71,7 @@ pub async fn get_structure_by_year(
                     row.event_name,
                     row.event_level,
                     row.event_date,
+                    row.event_location,
                     row.event_total_institutions,
                     row.event_total_teams,
                     row.event_total_participants,
@@ -48,6 +92,7 @@ mod tests {
     use chrono::NaiveDate;
 
     use crate::{
+        errors::AppError,
         repositories::{
             MockCompetitionRepository, types::competitions::CompetitionEventsByYearRow,
         },
@@ -103,6 +148,7 @@ mod tests {
 
         assert_eq!(result.location_types.len(), 2);
         assert_eq!(result.events.len(), 2);
+        assert_eq!(result.events[0].location, "Brazil, Salvador");
     }
 
     #[tokio::test]
@@ -116,5 +162,18 @@ mod tests {
 
         assert!(result.location_types.is_empty());
         assert!(result.events.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_structure_by_year_propagates_repository_error() {
+        let mut repo = MockCompetitionRepository::new();
+        repo.expect_find_events_by_year()
+            .with(mockall::predicate::eq(10), mockall::predicate::eq(2024))
+            .returning(|_, _| Err(AppError::BadRequest("repo fail".to_string())));
+
+        let result = get_structure_by_year(&repo, 10, Some(2024)).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Bad request: repo fail");
     }
 }

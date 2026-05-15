@@ -1,9 +1,62 @@
+//! # `backend::services::institutions::get_event_performance_over_time`
+//!
+//! ## Responsabilidade
+//! Implementa casos de uso do domínio `institutions`.
+//!
+//! ## Lógica de Implementação
+//! Valida entrada, consulta traits de repositório e converte dados para DTOs de resposta.
+//!
+//! ## Funções
+//! - `get_event_performance_over_time`: Caso de uso de domínio que valida parâmetros e orquestra consulta/transformação de dados.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     dtos::institutions::responses::EventPerformance,
     errors::{AppError, AppResult},
     repositories::InstitutionRepository,
 };
 
+/// Retorna a evolução de desempenho de uma instituição em um evento.
+///
+/// A consulta cobre um intervalo de anos e devolve, para cada ano, métricas de
+/// melhor performance e performance média.
+///
+/// # Parâmetros
+/// - `repo`: contrato de acesso a dados de instituições.
+/// - `institution_id`: ID da instituição.
+/// - `event_id`: ID do evento.
+/// - `start_year`: primeiro ano do intervalo.
+/// - `end_year`: último ano do intervalo.
+///
+/// # Retorno
+/// - `Ok(Vec<EventPerformance>)` ordenado conforme retorno do repositório.
+///
+/// # Erros
+/// - Retorna `AppError::BadRequest` quando `start_year` ou `end_year` são
+///   ausentes.
+/// - Propaga erros do repositório.
+///
+/// # Exemplos
+/// ```ignore
+/// use backend::services;
+/// use backend::errors::AppResult;
+/// use backend::repositories::InstitutionRepository;
+///
+/// async fn run(repo: &dyn InstitutionRepository) -> AppResult<()> {
+///     let perf = services::institutions::get_event_performance_over_time(
+///         repo,
+///         5,
+///         100,
+///         Some(2020),
+///         Some(2024),
+///     )
+///     .await?;
+///     println!("Anos avaliados: {}", perf.len());
+///     Ok(())
+/// }
+/// ```
 pub async fn get_event_performance_over_time(
     repo: &dyn InstitutionRepository,
     institution_id: i32,
@@ -30,6 +83,7 @@ pub async fn get_event_performance_over_time(
 mod tests {
     use super::*;
 
+    use crate::errors::AppError;
     use crate::repositories::{
         MockInstitutionRepository, types::institutions::EventPerformanceRow,
     };
@@ -91,5 +145,23 @@ mod tests {
             .unwrap();
 
         assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_event_performance_over_time_propagates_repository_error() {
+        let mut repo = MockInstitutionRepository::new();
+        repo.expect_find_event_performance_over_time()
+            .with(
+                mockall::predicate::eq(5),
+                mockall::predicate::eq(100),
+                mockall::predicate::eq(2020),
+                mockall::predicate::eq(2024),
+            )
+            .returning(|_, _, _, _| Err(AppError::BadRequest("repo fail".to_string())));
+
+        let result = get_event_performance_over_time(&repo, 5, 100, Some(2020), Some(2024)).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Bad request: repo fail");
     }
 }

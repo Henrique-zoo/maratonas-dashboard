@@ -1,9 +1,28 @@
+//! # `backend::main`
+//!
+//! ## Responsabilidade
+//! Define o ponto de entrada do backend e prepara a aplicação para atender requisições HTTP.
+//!
+//! ## Lógica de Implementação
+//! Lê variáveis de ambiente, cria o pool PostgreSQL, aplica migrations SQLx, constrói o `AppState` e inicia o servidor Axum.
+//!
+//! ## Funções
+//! - `main`: Inicializa infraestrutura da aplicação e inicia o servidor HTTP.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use anyhow::Context;
 use sqlx::postgres::PgPoolOptions;
 use std::env::{self, VarError};
 
 use backend::*;
 
+/// Inicializa e executa o servidor HTTP do backend.
+///
+/// Carrega a URL do banco a partir de `DATABASE_URL`, abre o pool PostgreSQL,
+/// executa as migrations embutidas pelo `sqlx`, constrói o estado global e
+/// publica a aplicação Axum em `0.0.0.0:8000`.
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let db_url = env::var("DATABASE_URL").map_err(|e| match e {

@@ -1,7 +1,31 @@
+//! # `backend::routes::competitions`
+//!
+//! ## Responsabilidade
+//! Define as rotas HTTP do domínio `core`.
+//!
+//! ## Lógica de Implementação
+//! Constrói um `Router` de domínio, registra paths/métodos e delega o processamento para controllers específicos.
+//!
+//! ## Funções
+//! - `router`: Monta e devolve o roteador Axum com os endpoints deste escopo.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use axum::{Router, routing::get};
 
 use crate::{AppState, controllers};
 
+/// Cria o roteador do domínio de competições.
+///
+/// Endpoints registrados:
+/// - `GET /competitions/options`
+/// - `GET /competitions/structures`
+/// - `GET /competitions/{id}/structure`
+/// - `GET /competitions/{id}/stats`
+/// - `GET /competitions/{id}/location_stats`
+///
+/// Cada rota delega para handlers em `controllers::competitions`.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(

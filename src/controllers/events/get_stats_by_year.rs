@@ -1,3 +1,17 @@
+//! # `backend::controllers::events::get_stats_by_year`
+//!
+//! ## Responsabilidade
+//! Implementa handlers HTTP do domínio `events`.
+//!
+//! ## Lógica de Implementação
+//! Extrai parâmetros (`Path`, `Query` e `State`), delega ao service correspondente e transforma o resultado em `Json`/`IntoResponse`.
+//!
+//! ## Funções
+//! - `get_stats_by_year`: Handler HTTP que extrai dados da requisição, delega ao service e retorna payload serializável.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -10,6 +24,18 @@ use crate::{
     services,
 };
 
+/// Retorna estatísticas anuais consolidadas de um evento.
+///
+/// Extrai o ID do evento do path e o ano da query string, delegando a
+/// validação ao service de eventos.
+///
+/// # Parâmetros
+/// - `state`: estado compartilhado da aplicação, contendo o registry.
+/// - `path`: path com o identificador do evento.
+/// - `query`: query com o ano de referência.
+///
+/// # Retorno
+/// Resposta JSON com totais anuais ou erro convertido por `IntoResponse`.
 pub async fn get_stats_by_year(
     State(state): State<AppState>,
     Path(path): Path<IdPath>,
@@ -17,5 +43,5 @@ pub async fn get_stats_by_year(
 ) -> impl IntoResponse {
     services::events::get_stats_by_year(&state.repo, path.id, query.year)
         .await
-        .map(|stats| Json(stats))
+        .map(Json)
 }

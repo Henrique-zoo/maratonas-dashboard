@@ -21,3 +21,4 @@ indexmap = "2"
 [dev-dependencies]
 mockall = "0.12"
 async-trait = "0.1"
+serde_urlencoded = "0.7"

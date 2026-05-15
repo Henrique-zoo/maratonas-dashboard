@@ -1,3 +1,20 @@
+//! # `backend::repositories::competition::structures`
+//!
+//! ## Responsabilidade
+//! Implementa consultas do repositório de `competition`.
+//!
+//! ## Lógica de Implementação
+//! Executa consultas SQL analíticas com CTEs, agregações e árvore de localização para retornar linhas tipadas com alta densidade de dados.
+//!
+//! ## Funções
+//! - `find_structures_by_ids`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
+//! - `find_events_by_year`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
+//! - `find_structure_by_year`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
+//! - `find_team_result_by_year`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
+//!
+//! ## Tipos
+//! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
+//!
 use crate::{
     errors::AppResult,
     repositories::{
@@ -9,7 +26,23 @@ use crate::{
     },
 };
 
-// Encontra as "estruturas" das competições cujos ids foram fornecidos. A estrutura contém os eventos do último ano em que houve competição e o ranking dos times nesses eventos
+/// Busca linhas para montar a estrutura pública de competições.
+///
+/// Para cada competição informada, a query identifica o último ano com eventos
+/// registrados e retorna linhas denormalizadas com metadados da competição,
+/// eventos desse ano, localização e resultado dos times.
+///
+/// # Parâmetros
+/// - `repo`: registry que fornece acesso ao pool PostgreSQL.
+/// - `competitions_ids`: competições que devem compor o resultado.
+///
+/// # Retorno
+/// Vetor de [`CompetitionStructureRow`] ordenado por competição, nível do
+/// evento, nome do evento e ranking do time.
+///
+/// # Erros
+/// Propaga erros emitidos pelo `sqlx` durante preparação, bind ou execução da
+/// query.
 pub(super) async fn find_structures_by_ids(
     repo: &Registry,
     competitions_ids: Vec<i32>,
@@ -184,7 +217,24 @@ pub(super) async fn find_structures_by_ids(
     Ok(rows)
 }
 
-//Encontra os eventos de uma competição em um ano (e seus dados)
+/// Busca eventos de uma competição em um ano com totais agregados.
+///
+/// A query retorna uma linha por instância de evento, incluindo localização do
+/// evento, tipos de localização observados nas equipes participantes e totais
+/// de instituições, times e participantes.
+///
+/// # Parâmetros
+/// - `repo`: registry que fornece acesso ao pool PostgreSQL.
+/// - `competition_id`: competição usada como recorte principal.
+/// - `year`: ano das instâncias de evento consideradas.
+///
+/// # Retorno
+/// Vetor de [`CompetitionEventsByYearRow`] ordenado por nível, data e nome do
+/// evento.
+///
+/// # Erros
+/// Propaga erros emitidos pelo `sqlx` durante preparação, bind ou execução da
+/// query.
 pub(super) async fn find_events_by_year(
     repo: &Registry,
     competition_id: i32,
@@ -314,7 +364,24 @@ pub(super) async fn find_events_by_year(
     Ok(rows)
 }
 
-// Encontra a "estrutura" de competição em um ano. A estrutura contém os eventos de um ano e o ranking dos times nesse evento
+/// Busca linhas da estrutura detalhada de uma competição em um ano.
+///
+/// Cada linha representa a participação de um time em um evento do ano,
+/// incluindo dados da instituição, localização resolvida e ranking. O service
+/// consome essas linhas para montar a árvore `eventos -> times`.
+///
+/// # Parâmetros
+/// - `repo`: registry que fornece acesso ao pool PostgreSQL.
+/// - `competition_id`: competição usada como recorte principal.
+/// - `year`: ano das instâncias de evento consideradas.
+///
+/// # Retorno
+/// Vetor de [`CompetitionYearStructureRow`] ordenado por nível, data, nome do
+/// evento e ranking do time.
+///
+/// # Erros
+/// Propaga erros emitidos pelo `sqlx` durante preparação, bind ou execução da
+/// query.
 pub(super) async fn find_structure_by_year(
     repo: &Registry,
     competition_id: i32,
@@ -461,7 +528,24 @@ pub(super) async fn find_structure_by_year(
     Ok(rows)
 }
 
-// Econtra o resultado (e estatísticas) do time nos eventos da competição no ano especificado
+/// Busca o resultado anual de um time em uma competição.
+///
+/// A query retorna os eventos disputados pelo time no ano informado, incluindo
+/// localização, escopo, ranking e totais de membros da participação.
+///
+/// # Parâmetros
+/// - `repo`: registry que fornece acesso ao pool PostgreSQL.
+/// - `team_id`: time analisado.
+/// - `competition_id`: competição usada como recorte.
+/// - `year`: ano das instâncias de evento consideradas.
+///
+/// # Retorno
+/// Vetor de [`CompetitionTeamYearResultRow`] ordenado por ranking, nível, nome
+/// e data do evento.
+///
+/// # Erros
+/// Propaga erros emitidos pelo `sqlx` durante preparação, bind ou execução da
+/// query.
 pub(super) async fn find_team_result_by_year(
     repo: &Registry,
     team_id: i32,
