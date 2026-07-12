@@ -1,0 +1,51 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "docker: up db",
+      "type": "shell",
+      "command": "docker",
+      "args": ["compose", "up", "-d", "db"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "backend: cargo build debug",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["build"],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "backend: cargo test",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["test", "--all-targets", "--all-features"],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "frontend: check",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "check"],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "backend: debug prepare",
+      "dependsOrder": "sequence",
+      "dependsOn": ["docker: up db", "backend: cargo build debug"],
+      "problemMatcher": []
+    }
+  ]
+}

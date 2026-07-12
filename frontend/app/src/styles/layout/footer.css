@@ -1,0 +1,22 @@
+.site-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-block);
+  padding: 1.8rem clamp(1rem, 3vw, 2.25rem) 2.5rem;
+  color: var(--ink-soft);
+}
+
+.footer-title {
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  font-family: 'Bitter', 'IBM Plex Serif', Georgia, serif;
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+
+.footer-links {
+  display: flex;
+  gap: var(--space-panel);
+  flex-wrap: wrap;
+  align-items: start;
+}
