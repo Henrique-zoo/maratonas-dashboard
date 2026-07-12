@@ -501,10 +501,10 @@ impl HomeFilterContext {
                     .map(|team| team.id)
                     .collect::<Vec<_>>();
 
-                if selected_institution.is_some() || selected_team.is_some() {
-                    if event_team_ids.is_empty() {
-                        continue;
-                    }
+                if (selected_institution.is_some() || selected_team.is_some())
+                    && event_team_ids.is_empty()
+                {
+                    continue;
                 }
 
                 competition_event_count += 1;
