@@ -1,5 +1,10 @@
-import { getInstitutionEventPerformance, getInstitutionStructures } from '../lib/api.js';
-import { flattenInstitutionEvents, getInstitutionOverview, sortByDateDesc } from '../lib/metrics.js';
+import {
+  getInstitutionEventOptions,
+  getInstitutionEventPerformance,
+  getInstitutionStructures,
+} from '../lib/api.js';
+import { initCustomDropdowns, renderDropdown } from '../lib/custom-select.js';
+import { getInstitutionOverview } from '../lib/metrics.js';
 import {
   escapeHtml,
   formatDate,
@@ -13,17 +18,22 @@ import {
   serialiseQuery,
 } from '../lib/ui.js';
 
-function deriveDefaultRange(eventDate) {
-  const year = new Date(`${eventDate}T00:00:00`).getFullYear();
+let dropdownAbortController = null;
+
+function deriveDefaultRange(years = []) {
+  const end = years.length ? Math.max(...years.map(Number)) : new Date().getFullYear();
   return {
-    start: Math.max(year - 4, 2000),
-    end: year,
+    start: Math.max(end - 4, Math.min(...years.map(Number), end), 2000),
+    end,
   };
 }
 
 export async function render({ params, query, navigate }) {
   const institutionId = Number(params.id);
-  const institution = (await getInstitutionStructures([institutionId]))[0];
+  const [institution, eventOptions] = await Promise.all([
+    getInstitutionStructures([institutionId]).then((structures) => structures[0]),
+    getInstitutionEventOptions(institutionId),
+  ]);
 
   if (!institution) {
     return {
@@ -36,9 +46,8 @@ export async function render({ params, query, navigate }) {
   }
 
   const overview = getInstitutionOverview(institution);
-  const events = sortByDateDesc(flattenInstitutionEvents(institution));
-  const selectedEvent = events.find((event) => event.id === Number(query.event)) || events[0];
-  const defaults = deriveDefaultRange(selectedEvent?.date || new Date().toISOString().slice(0, 10));
+  const selectedEvent = eventOptions.find((event) => event.id === Number(query.event)) || eventOptions[0];
+  const defaults = deriveDefaultRange(selectedEvent?.years || []);
   const startYear = query.start ? Number(query.start) : defaults.start;
   const endYear = query.end ? Number(query.end) : defaults.end;
   const performance = selectedEvent
@@ -47,7 +56,7 @@ export async function render({ params, query, navigate }) {
 
   const html = `
     ${renderPageIntro({
-      eyebrow: 'Institution dossier',
+      eyebrow: 'Institution',
       title: institution.name,
       blurb:
         'Inspect this institution across competitions, then pivot to a single event and watch performance rank move over time.',
@@ -59,17 +68,18 @@ export async function render({ params, query, navigate }) {
 
     <section class="panel panel--filters">
       <form class="filter-bar" id="institution-detail-filters">
-        <label class="filter-bar__grow">
-          <span>Event</span>
-          <select name="event">
-            ${events
-              .map(
-                (event) =>
-                  `<option value="${event.id}" ${event.id === selectedEvent?.id ? 'selected' : ''}>${escapeHtml(event.competition_name)} · ${escapeHtml(event.name)} (${new Date(`${event.date}T00:00:00`).getFullYear()})</option>`,
-              )
-              .join('')}
-          </select>
-        </label>
+        ${renderDropdown({
+          name: 'event',
+          label: 'Event',
+          options: eventOptions.map((event) => ({
+            id: String(event.id),
+            name: `${event.competition_name} · ${event.name} (${event.years.join(', ')})`,
+          })),
+          selectedValue: selectedEvent?.id,
+          placeholder: 'Select event',
+          labelClass: 'filter-step filter-bar__grow',
+          disabled: !eventOptions.length,
+        })}
         <label>
           <span>Start year</span>
           <input name="start" type="number" value="${startYear}" min="2000" max="2100" />
@@ -83,10 +93,26 @@ export async function render({ params, query, navigate }) {
     </section>
 
     ${renderStatGrid([
-      { label: 'Competitions', value: formatNumber(overview.competitionCount), hint: 'Active pipelines' },
-      { label: 'Events', value: formatNumber(overview.eventCount), hint: 'Tracked fixtures' },
-      { label: 'Entries', value: formatNumber(overview.teamEntries), hint: 'Team appearances' },
-      { label: 'Women tracked', value: formatNumber(overview.femaleParticipants), hint: 'Absolute count' },
+      {
+        label: 'Competitions',
+        value: formatNumber(overview.competitionCount),
+        hint: 'Latest participation snapshot each',
+      },
+      {
+        label: 'Events',
+        value: formatNumber(overview.eventCount),
+        hint: 'Snapshot event results',
+      },
+      {
+        label: 'Team entries',
+        value: formatNumber(overview.teamEntries),
+        hint: 'Across snapshot events',
+      },
+      {
+        label: 'Female entries',
+        value: formatNumber(overview.femaleParticipantEntries),
+        hint: 'Contestant entries',
+      },
     ])}
 
     <section class="content-grid">
@@ -97,9 +123,12 @@ export async function render({ params, query, navigate }) {
             <h2>${escapeHtml(selectedEvent?.name || 'Event trend')}</h2>
           </div>
         </div>
-        <p class="card-note">${escapeHtml(selectedEvent ? `${selectedEvent.competition_name} · ${formatDate(selectedEvent.date)}` : 'Select an event to load a trend.')}</p>
+        <p class="card-note">${escapeHtml(selectedEvent ? `${selectedEvent.competition_name} · available years ${selectedEvent.years.join(', ')}` : 'Select an event to load a trend.')}</p>
         ${renderLineChart(
-          performance.map((point) => ({ label: point.year, value: point.medium_performance_rank })),
+          performance.map((point) => ({
+            label: point.year,
+            value: point.average_performance_rank,
+          })),
           { yLabel: 'Average rank' },
         )}
       </article>
@@ -108,7 +137,7 @@ export async function render({ params, query, navigate }) {
         <div class="section-head">
           <div>
             <span class="eyebrow">Best runs</span>
-            <h2>Top result by season</h2>
+            <h2>Top result by year</h2>
           </div>
         </div>
         ${
@@ -124,8 +153,14 @@ export async function render({ params, query, navigate }) {
                 rows: performance.map((point) => [
                   { value: `<strong>${point.year}</strong>` },
                   { value: escapeHtml(point.best_performance_team_name) },
-                  { value: formatNumber(point.best_performance_rank), align: 'right' },
-                  { value: point.medium_performance_rank.toFixed(2), align: 'right' },
+                  {
+                    value: formatNumber(point.best_performance_rank),
+                    align: 'right',
+                  },
+                  {
+                    value: point.average_performance_rank.toFixed(2),
+                    align: 'right',
+                  },
                 ]),
               })
             : renderEmptyState(
@@ -139,8 +174,8 @@ export async function render({ params, query, navigate }) {
     <section class="section-block">
       <div class="section-head">
         <div>
-          <span class="eyebrow">Pipeline breakdown</span>
-          <h2>Competitions, events and local teams</h2>
+          <span class="eyebrow">Latest participation snapshots</span>
+          <h2>Most recent season reached in each competition</h2>
         </div>
       </div>
       <div class="stack-list">
@@ -151,7 +186,7 @@ export async function render({ params, query, navigate }) {
                 <div class="section-head section-head--tight">
                   <div>
                     <h3>${escapeHtml(competition.name)}</h3>
-                    <p>${escapeHtml(String(competition.events.length))} tracked events</p>
+                    <p>${escapeHtml(String(competition.events.length))} events · ${competition.snapshot_year}</p>
                   </div>
                 </div>
                 ${renderTable({
@@ -159,9 +194,9 @@ export async function render({ params, query, navigate }) {
                   columns: [
                     { label: 'Event' },
                     { label: 'Date' },
-                    { label: 'Scope' },
+                    { label: 'Level' },
                     { label: 'Teams', align: 'right' },
-                    { label: 'Women', align: 'right' },
+                    { label: 'Female entries', align: 'right' },
                   ],
                   rows: competition.events.map((event) => [
                     {
@@ -195,6 +230,14 @@ export async function render({ params, query, navigate }) {
     html,
     afterRender() {
       const form = document.getElementById('institution-detail-filters');
+
+      if (dropdownAbortController) {
+        dropdownAbortController.abort();
+      }
+
+      dropdownAbortController = new AbortController();
+      initCustomDropdowns(document, dropdownAbortController.signal);
+
       form.addEventListener('submit', (event) => {
         event.preventDefault();
         const data = new FormData(form);

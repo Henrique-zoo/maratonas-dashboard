@@ -1,4 +1,5 @@
 import { getTeamCompetitionYearStructure, getTeamStructures } from '../lib/api.js';
+import { initCustomDropdowns, renderDropdown } from '../lib/custom-select.js';
 import { getTeamOverview, latestYear } from '../lib/metrics.js';
 import {
   escapeHtml,
@@ -12,6 +13,8 @@ import {
   renderTable,
   serialiseQuery,
 } from '../lib/ui.js';
+
+let dropdownAbortController = null;
 
 function renderCompetitionRail(team, selectedCompetitionId, selectedYear) {
   return `
@@ -52,10 +55,9 @@ export async function render({ params, query, navigate }) {
 
   const html = `
     ${renderPageIntro({
-      eyebrow: 'Team dossier',
+      eyebrow: 'Team',
       title: team.name,
-      blurb:
-        'Follow this team across its competition portfolio and drill into a specific season inside any competition track.',
+      blurb: 'Follow this team across competitions and years.',
       meta: [
         renderChip(`${overview.competitionCount} competitions`, 'amber'),
         renderChip(`${overview.eventCount} events`, 'navy'),
@@ -65,8 +67,8 @@ export async function render({ params, query, navigate }) {
     <section class="panel">
       <div class="section-head">
         <div>
-          <span class="eyebrow">Competition rail</span>
-          <h2>Move between competitions</h2>
+          <span class="eyebrow">Competitions</span>
+          <h2>Choose a competition</h2>
         </div>
       </div>
       ${renderCompetitionRail(team, selectedCompetition?.id, selectedYear)}
@@ -77,53 +79,49 @@ export async function render({ params, query, navigate }) {
         ? `
       <section class="panel panel--filters">
         <form class="filter-bar" id="team-detail-filters">
-          <label>
-            <span>Competition</span>
-            <select name="competition">
-              ${team.competitions
-                .map(
-                  (competition) =>
-                    `<option value="${competition.id}" ${competition.id === selectedCompetition.id ? 'selected' : ''}>${escapeHtml(competition.name)}</option>`,
-                )
-                .join('')}
-            </select>
-          </label>
-          <label>
-            <span>Season</span>
-            <select name="year">
-              ${[...selectedCompetition.years]
-                .sort((left, right) => right - left)
-                .map(
-                  (year) =>
-                    `<option value="${year}" ${year === selectedYear ? 'selected' : ''}>${year}</option>`,
-                )
-                .join('')}
-            </select>
-          </label>
-          <button class="button" type="submit">Refresh season</button>
+          ${renderDropdown({
+            name: 'competition',
+            label: 'Competition',
+            options: team.competitions.map((competition) => ({
+              id: String(competition.id),
+              name: competition.name,
+            })),
+            selectedValue: selectedCompetition.id,
+            placeholder: 'Select competition',
+          })}
+          ${renderDropdown({
+            name: 'year',
+            label: 'Year',
+            options: [...selectedCompetition.years]
+              .sort((left, right) => right - left)
+              .map((year) => ({ id: String(year), name: String(year) })),
+            selectedValue: selectedYear,
+            placeholder: 'Select year',
+          })}
+          <button class="button" type="submit">Apply</button>
         </form>
       </section>
 
       ${renderStatGrid([
         {
-          label: 'Competition seasons',
+          label: 'Years',
           value: escapeHtml(selectedCompetition.years.join(', ')),
           hint: selectedCompetition.gender_category,
         },
         {
-          label: 'Members tracked',
-          value: formatNumber(selectedCompetition.total_members),
-          hint: 'Across this competition',
+          label: 'Contestant entries',
+          value: formatNumber(seasonStructure.total_members),
+          hint: `Across events in ${selectedYear}`,
         },
         {
-          label: 'Women tracked',
-          value: formatNumber(selectedCompetition.female_participants),
-          hint: 'Across this competition',
+          label: 'Female entries',
+          value: formatNumber(seasonStructure.female_participants),
+          hint: `Contestant entries in ${selectedYear}`,
         },
         {
-          label: 'Events this season',
+          label: 'Events',
           value: formatNumber(seasonStructure.events.length),
-          hint: `Season ${selectedYear}`,
+          hint: `Year ${selectedYear}`,
         },
       ])}
 
@@ -131,7 +129,7 @@ export async function render({ params, query, navigate }) {
         <article class="panel">
           <div class="section-head">
             <div>
-              <span class="eyebrow">Season results</span>
+              <span class="eyebrow">Results</span>
               <h2>${escapeHtml(selectedCompetition.name)} · ${selectedYear}</h2>
             </div>
             ${renderChip(selectedCompetition.gender_category, 'slate')}
@@ -143,29 +141,27 @@ export async function render({ params, query, navigate }) {
                     { label: 'Event' },
                     { label: 'Date' },
                     { label: 'Location' },
-                    { label: 'Scope' },
+                    { label: 'Level' },
                     { label: 'Rank', align: 'right' },
                   ],
                   rows: seasonStructure.events.map((event) => [
                     {
                       value: `<a href="/events/${event.id}${serialiseQuery({
                         year: selectedYear,
-                        name: event.name,
-                        date: event.date,
-                        location: event.location,
-                        competitionId: selectedCompetition.id,
-                        competitionName: selectedCompetition.name,
                       })}" data-link><strong>${escapeHtml(event.name)}</strong></a>`,
                     },
                     { value: escapeHtml(formatDate(event.date)) },
                     { value: escapeHtml(event.location) },
                     { value: escapeHtml(event.scope) },
-                    { value: formatNumber(event.team_event_rank), align: 'right' },
+                    {
+                      value: formatNumber(event.team_event_rank),
+                      align: 'right',
+                    },
                   ]),
                 })
               : renderEmptyState(
-                  'No season rows for this competition',
-                  'Pick another season or move to a different competition from the rail above.',
+                  'No events for this year',
+                  'Pick another year or choose a different competition.',
                 )
           }
         </article>
@@ -173,15 +169,27 @@ export async function render({ params, query, navigate }) {
         <article class="panel">
           <div class="section-head">
             <div>
-              <span class="eyebrow">Portfolio snapshot</span>
-              <h2>Everything tracked for this team</h2>
+              <span class="eyebrow">Overview</span>
+              <h2>Latest participation snapshot per competition</h2>
             </div>
           </div>
           ${renderMetricStrip([
-            { label: 'Competitions', value: formatNumber(overview.competitionCount) },
-            { label: 'Events', value: formatNumber(overview.eventCount) },
-            { label: 'Members', value: formatNumber(overview.totalMembers) },
-            { label: 'Women', value: formatNumber(overview.femaleParticipants) },
+            {
+              label: 'Competitions',
+              value: formatNumber(overview.competitionCount),
+            },
+            {
+              label: 'Snapshot events',
+              value: formatNumber(overview.eventCount),
+            },
+            {
+              label: 'Contestant entries',
+              value: formatNumber(overview.participantEntries),
+            },
+            {
+              label: 'Female entries',
+              value: formatNumber(overview.femaleParticipantEntries),
+            },
           ])}
           <div class="timeline-list">
             ${team.competitions
@@ -190,7 +198,7 @@ export async function render({ params, query, navigate }) {
                   <a class="timeline-item" href="/teams/${team.id}${serialiseQuery({ competition: competition.id, year: latestYear(competition.years) })}" data-link>
                     <span>${escapeHtml(competition.years.join(', '))}</span>
                     <strong>${escapeHtml(competition.name)}</strong>
-                    <small>${formatNumber(competition.events.length)} events · ${formatNumber(competition.female_participants)} women</small>
+                    <small>Snapshot ${competition.snapshot_year} · ${formatNumber(competition.events.length)} events · ${formatNumber(competition.female_participants)} female entries</small>
                   </a>
                 `,
               )
@@ -215,6 +223,13 @@ export async function render({ params, query, navigate }) {
       if (!form) {
         return;
       }
+
+      if (dropdownAbortController) {
+        dropdownAbortController.abort();
+      }
+
+      dropdownAbortController = new AbortController();
+      initCustomDropdowns(document, dropdownAbortController.signal);
 
       form.addEventListener('submit', (event) => {
         event.preventDefault();

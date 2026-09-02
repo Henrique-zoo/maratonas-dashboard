@@ -1,5 +1,5 @@
 const API_BASE = '/api';
-const requestCache = new Map();
+const inFlightRequests = new Map();
 
 function buildQuery(params = {}) {
   const searchParams = new URLSearchParams();
@@ -19,10 +19,13 @@ function buildQuery(params = {}) {
 async function request(path, params = {}) {
   const url = `${API_BASE}${path}${buildQuery(params)}`;
 
-  if (!requestCache.has(url)) {
-    requestCache.set(
-      url,
-      fetch(url).then(async (response) => {
+  if (!inFlightRequests.has(url)) {
+    let pendingRequest;
+    pendingRequest = fetch(url, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    })
+      .then(async (response) => {
         const payload = await response.json().catch(() => ({}));
 
         if (!response.ok) {
@@ -30,11 +33,17 @@ async function request(path, params = {}) {
         }
 
         return payload;
-      }),
-    );
+      })
+      .finally(() => {
+        if (inFlightRequests.get(url) === pendingRequest) {
+          inFlightRequests.delete(url);
+        }
+      });
+
+    inFlightRequests.set(url, pendingRequest);
   }
 
-  return requestCache.get(url);
+  return inFlightRequests.get(url);
 }
 
 function csv(values) {
@@ -42,7 +51,7 @@ function csv(values) {
 }
 
 export function clearApiCache() {
-  requestCache.clear();
+  inFlightRequests.clear();
 }
 
 export function getOrganizerOptions() {
@@ -74,14 +83,16 @@ export function getCompetitionStats(id, year) {
 }
 
 export function getCompetitionLocationStats(id, locationType, year) {
-  return request(`/competitions/${id}/location_stats`, {
+  return request(`/competitions/${id}/location-stats`, {
     location_type: locationType,
     year,
   });
 }
 
 export function getInstitutionOptions(competitionIds = null) {
-  return request('/institutions/options', { competition_ids: csv(competitionIds) });
+  return request('/institutions/options', {
+    competition_ids: csv(competitionIds),
+  });
 }
 
 export function getInstitutionStructures(ids) {
@@ -89,10 +100,14 @@ export function getInstitutionStructures(ids) {
 }
 
 export function getInstitutionEventPerformance(institutionId, eventId, startYear, endYear) {
-  return request(`/institutions/${institutionId}/events/${eventId}`, {
+  return request(`/institutions/${institutionId}/events/${eventId}/performance`, {
     start_year: startYear,
     end_year: endYear,
   });
+}
+
+export function getInstitutionEventOptions(institutionId) {
+  return request(`/institutions/${institutionId}/events/options`);
 }
 
 export function getTeamOptions(competitionIds = null, institutionIds = null) {
@@ -107,15 +122,19 @@ export function getTeamStructures(ids) {
 }
 
 export function getTeamCompetitionYearStructure(teamId, competitionId, year) {
-  return request(`/teams/${teamId}/competitions/${competitionId}`, { year });
+  return request(`/teams/${teamId}/competitions/${competitionId}/structure`, { year });
 }
 
 export function getEventStats(id, year) {
   return request(`/events/${id}/stats`, { year });
 }
 
+export function getEventStructure(id, year = null) {
+  return request(`/events/${id}/structure`, { year });
+}
+
 export function getEventLocationStats(id, locationType, year) {
-  return request(`/events/${id}/location_stats`, {
+  return request(`/events/${id}/location-stats`, {
     location_type: locationType,
     year,
   });

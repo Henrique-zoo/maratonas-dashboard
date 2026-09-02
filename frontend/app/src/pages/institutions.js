@@ -1,4 +1,5 @@
 import { getCompetitionOptions, getInstitutionOptions, getInstitutionStructures } from '../lib/api.js';
+import { initCustomDropdowns, renderDropdown } from '../lib/custom-select.js';
 import { getInstitutionOverview } from '../lib/metrics.js';
 import {
   escapeHtml,
@@ -10,17 +11,7 @@ import {
   serialiseQuery,
 } from '../lib/ui.js';
 
-function optionMarkup(options, selectedValue, placeholder) {
-  return `
-    <option value="">${escapeHtml(placeholder)}</option>
-    ${options
-      .map(
-        (option) =>
-          `<option value="${option.id}" ${Number(selectedValue) === option.id ? 'selected' : ''}>${escapeHtml(option.name)}</option>`,
-      )
-      .join('')}
-  `;
-}
+let dropdownAbortController = null;
 
 export async function render({ query, navigate }) {
   const selectedCompetition = query.competition ? Number(query.competition) : null;
@@ -36,7 +27,10 @@ export async function render({ query, navigate }) {
     : [];
 
   const visibleInstitutions = institutions
-    .map((institution) => ({ institution, overview: getInstitutionOverview(institution) }))
+    .map((institution) => ({
+      institution,
+      overview: getInstitutionOverview(institution),
+    }))
     .filter(({ institution }) => {
       if (!searchTerm) {
         return true;
@@ -53,19 +47,19 @@ export async function render({ query, navigate }) {
     ${renderPageIntro({
       eyebrow: 'Institution market',
       title: 'Institution pipelines',
-      blurb:
-        'Evaluate universities and schools through event participation depth, competition reach and historical performance threads.',
+      blurb: 'Compare the latest season in which each institution participated in every competition.',
       meta: [renderChip(`${visibleInstitutions.length} visible institutions`, 'amber')],
     })}
 
     <section class="panel panel--filters">
       <form class="filter-bar" id="institution-filters">
-        <label>
-          <span>Competition</span>
-          <select name="competition">
-            ${optionMarkup(competitionOptions, selectedCompetition, 'All competitions')}
-          </select>
-        </label>
+        ${renderDropdown({
+          name: 'competition',
+          label: 'Competition',
+          options: competitionOptions,
+          selectedValue: selectedCompetition,
+          placeholder: 'All competitions',
+        })}
         <label class="filter-bar__grow">
           <span>Search</span>
           <input name="q" type="search" value="${escapeHtml(query.q || '')}" placeholder="Institution or location" />
@@ -90,12 +84,25 @@ export async function render({ query, navigate }) {
                 ${renderChip(`${overview.competitionCount} competitions`, 'navy')}
               </div>
               ${renderMetricStrip([
-                { label: 'Events', value: formatNumber(overview.eventCount) },
-                { label: 'Entries', value: formatNumber(overview.teamEntries) },
-                { label: 'Participants', value: formatNumber(overview.totalParticipants) },
-                { label: 'Women', value: formatNumber(overview.femaleParticipants) },
+                {
+                  label: 'Snapshot events',
+                  value: formatNumber(overview.eventCount),
+                },
+                {
+                  label: 'Team entries',
+                  value: formatNumber(overview.teamEntries),
+                },
+                {
+                  label: 'Contestant entries',
+                  value: formatNumber(overview.participantEntries),
+                },
+                {
+                  label: 'Female entries',
+                  value: formatNumber(overview.femaleParticipantEntries),
+                },
               ])}
-              <p class="card-note">Programs tracked: ${escapeHtml(
+              <p class="card-note">Reference seasons: ${escapeHtml(overview.snapshotYears.join(', ') || '—')}</p>
+              <p class="card-note">Programs: ${escapeHtml(
                 institution.competitions
                   .slice(0, 3)
                   .map((competition) => competition.name)
@@ -120,6 +127,14 @@ export async function render({ query, navigate }) {
     html,
     afterRender() {
       const form = document.getElementById('institution-filters');
+
+      if (dropdownAbortController) {
+        dropdownAbortController.abort();
+      }
+
+      dropdownAbortController = new AbortController();
+      initCustomDropdowns(document, dropdownAbortController.signal);
+
       form.addEventListener('submit', (event) => {
         event.preventDefault();
         const data = new FormData(form);

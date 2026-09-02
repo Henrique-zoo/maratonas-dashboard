@@ -13,10 +13,17 @@
 
   .hero-grid,
   .content-grid,
+  .competition-workbench,
+  .organizer-index-layout,
   .card-grid--three,
   .card-grid--two,
   .page-intro {
     grid-template-columns: 1fr;
+  }
+
+  .competition-filter-drawer,
+  .organizer-inspector {
+    position: static;
   }
 
   .stat-grid {
@@ -35,7 +42,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .filter-step:not(:nth-of-type(4))::after {
+  .filter-bar--cascade .filter-step:not(:nth-of-type(4))::after {
     display: none;
   }
 
@@ -172,6 +179,14 @@
 
   .data-table td > * {
     grid-column: 2;
+  }
+
+  .competition-event-ranking-row td {
+    display: block;
+  }
+
+  .competition-event-ranking-row td::before {
+    display: none;
   }
 
   .data-table td small {

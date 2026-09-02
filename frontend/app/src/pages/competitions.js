@@ -1,4 +1,5 @@
 import { getCompetitionOptions, getCompetitionStructures, getOrganizerOptions } from '../lib/api.js';
+import { initCustomDropdowns, renderDropdown } from '../lib/custom-select.js';
 import { getCompetitionOverview } from '../lib/metrics.js';
 import {
   escapeHtml,
@@ -11,17 +12,7 @@ import {
   serialiseQuery,
 } from '../lib/ui.js';
 
-function optionMarkup(options, selectedValue, placeholder) {
-  return `
-    <option value="">${escapeHtml(placeholder)}</option>
-    ${options
-      .map(
-        (option) =>
-          `<option value="${option.id}" ${Number(selectedValue) === option.id ? 'selected' : ''}>${escapeHtml(option.name)}</option>`,
-      )
-      .join('')}
-  `;
-}
+let dropdownAbortController = null;
 
 export async function render({ query, navigate }) {
   const selectedOrganizer = query.organizer ? Number(query.organizer) : null;
@@ -36,7 +27,10 @@ export async function render({ query, navigate }) {
   const competitions = competitionIds.length ? await getCompetitionStructures(competitionIds) : [];
 
   const filteredCompetitions = competitions
-    .map((competition) => ({ competition, overview: getCompetitionOverview(competition) }))
+    .map((competition) => ({
+      competition,
+      overview: getCompetitionOverview(competition),
+    }))
     .filter(({ competition }) => {
       if (!searchTerm) {
         return true;
@@ -56,20 +50,20 @@ export async function render({ query, navigate }) {
   const html = `
     ${renderPageIntro({
       eyebrow: 'Competition market',
-      title: 'Competition scouting board',
-      blurb:
-        'Filter competitions by organizer and inspect how large each competitive ecosystem becomes across its tracked seasons.',
+      title: 'Competitions',
+      blurb: 'Compare each competition using its latest available season snapshot.',
       meta: [renderChip(`${filteredCompetitions.length} visible competitions`, 'amber')],
     })}
 
     <section class="panel panel--filters">
       <form class="filter-bar" id="competition-filters">
-        <label>
-          <span>Organizer</span>
-          <select name="organizer">
-            ${optionMarkup(organizers, selectedOrganizer, 'All organizers')}
-          </select>
-        </label>
+        ${renderDropdown({
+          name: 'organizer',
+          label: 'Organizer',
+          options: organizers,
+          selectedValue: selectedOrganizer,
+          placeholder: 'All organizers',
+        })}
         <label class="filter-bar__grow">
           <span>Search</span>
           <input name="q" type="search" value="${escapeHtml(query.q || '')}" placeholder="Competition, event or category" />
@@ -92,21 +86,33 @@ export async function render({ query, navigate }) {
                 <div class="list-card__title">
                   <div>
                     <h2><a href="/competitions/${competition.id}" data-link>${escapeHtml(competition.name)}</a></h2>
-                    <p>${escapeHtml(overview.yearSpan)} · ${escapeHtml(String(overview.eventCount))} events</p>
+                    <p>Snapshot ${overview.snapshotYear} · ${escapeHtml(String(overview.eventCount))} events</p>
                   </div>
                   ${renderChip(competition.gender_category, 'navy')}
                 </div>
                 ${renderMetricStrip([
-                  { label: 'Unique teams', value: formatNumber(overview.uniqueTeams) },
-                  { label: 'Entries', value: formatNumber(overview.teamEntries) },
-                  { label: 'Participants', value: formatNumber(overview.totalParticipants) },
-                  { label: 'Women', value: formatNumber(overview.femaleParticipants) },
+                  {
+                    label: 'Unique teams',
+                    value: formatNumber(overview.uniqueTeams),
+                  },
+                  {
+                    label: 'Entries',
+                    value: formatNumber(overview.teamEntries),
+                  },
+                  {
+                    label: 'Contestant entries',
+                    value: formatNumber(overview.participantEntries),
+                  },
+                  {
+                    label: 'Female entries',
+                    value: formatNumber(overview.femaleParticipantEntries),
+                  },
                 ])}
                 <div class="tag-row">
                   ${(competition.location_types || []).map((locationType) => renderChip(locationType, 'slate')).join('')}
                 </div>
                 ${latestEvent ? `<p class="card-note">Latest fixture: ${escapeHtml(latestEvent.name)} on ${escapeHtml(formatDate(latestEvent.date))} in ${escapeHtml(latestEvent.location)}.</p>` : ''}
-                <a class="button button--ghost" href="/competitions/${competition.id}${serialiseQuery({ year: overview.latestYear })}" data-link>Open dossier</a>
+                <a class="button button--ghost" href="/competitions/${competition.id}${serialiseQuery({ year: overview.snapshotYear })}" data-link>Open competition</a>
               </article>
             `;
           })
@@ -126,6 +132,13 @@ export async function render({ query, navigate }) {
     afterRender() {
       const form = document.getElementById('competition-filters');
       const organizerSelect = form.querySelector('select[name="organizer"]');
+
+      if (dropdownAbortController) {
+        dropdownAbortController.abort();
+      }
+
+      dropdownAbortController = new AbortController();
+      initCustomDropdowns(document, dropdownAbortController.signal);
 
       form.addEventListener('submit', (event) => {
         event.preventDefault();
