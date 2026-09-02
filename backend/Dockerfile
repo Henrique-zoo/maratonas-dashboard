@@ -1,5 +1,5 @@
 # ── Estágio 1: build ──────────────────────────────────────────────────────────
-FROM rust:1.91 AS builder
+FROM rust:1.98.0-bookworm AS builder
 
 WORKDIR /app
 
@@ -15,14 +15,14 @@ RUN apt-get update && apt-get install -y \
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN mkdir tests && echo "fn main() {}" > tests/cucumber.rs
-RUN cargo build --release
+RUN cargo build --release --locked --bin backend
 RUN rm -f target/release/deps/backend*
 
 # Agora copia o código real e compila de verdade
 # Apenas o código do projeto será compilado, pois o Cargo verificará os timestamps dos artefatos e perceberá que as dependências já estão compiladas e atualizadas
 COPY src ./src
 COPY migrations ./migrations
-RUN cargo build --release
+RUN cargo build --release --locked --bin backend
 
 # ── Estágio 2: runtime ────────────────────────────────────────────────────────
 FROM debian:bookworm-slim AS runtime
