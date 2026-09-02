@@ -18,6 +18,10 @@ export default [
     },
     rules: {
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      complexity: ['warn', 15],
+      'max-depth': ['warn', 4],
+      'max-params': ['warn', 4],
+      'max-statements': ['warn', 40],
     },
   },
   {

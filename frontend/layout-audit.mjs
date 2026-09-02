@@ -31,6 +31,7 @@ const teamOptions = [
 const teamEntry = {
   id: 100,
   name: teamOptions[0].name,
+  institution_id: 200,
   institution_name: institutionOptions[0].name,
   institution_short_name: 'FITACSSPMC',
   total_members: 123456,
@@ -59,6 +60,7 @@ const competitionStructures = [
     gender_category: 'Mixed category with extended eligibility wording',
     website_url: 'https://example.test/mock-competition',
     years: [2020, 2021, 2022, 2023, 2024, 2025],
+    snapshot_year: 2025,
     location_types: eventEntry.location_types,
     events: [eventEntry],
   },
@@ -72,6 +74,7 @@ const organizerStructures = [
     competitions: [
       {
         ...competitionStructures[0],
+        snapshot_year: 2025,
         total_participants: 1234567,
         female_participants: 456789,
       },
@@ -90,6 +93,8 @@ const institutionStructures = [
         id: 1,
         name: competitionOptions[0].name,
         website_url: 'https://example.test/mock-competition',
+        years: [2020, 2021, 2022, 2023, 2024, 2025],
+        snapshot_year: 2025,
         events: [eventEntry],
       },
     ],
@@ -108,6 +113,7 @@ const teamStructures = [
         name: competitionOptions[0].name,
         gender_category: 'Mixed category with extended eligibility wording',
         years: [2020, 2021, 2022, 2023, 2024, 2025],
+        snapshot_year: 2025,
         total_members: 123456,
         female_participants: 45678,
         events: [eventEntry],
@@ -127,39 +133,92 @@ const responsesByPath = new Map([
   ['/api/teams/structures', teamStructures],
   ['/api/organizers/competitions/1/structure', competitionStructures[0]],
   ['/api/competitions/1/structure', competitionStructures[0]],
-  ['/api/competitions/1/stats', {
-    total_institutions: 12345,
-    total_teams: 98765,
-    total_participants: 1234567,
-    female_participants: 456789,
-  }],
-  ['/api/competitions/1/location_stats', [
-    { name: eventEntry.location, total_teams: 98765, total_participants: 1234567 },
-  ]],
-  ['/api/institutions/200/events/10', [
+  [
+    '/api/competitions/1/stats',
     {
-      year: 2021,
-      best_performance_team_name: teamOptions[0].name,
-      best_performance_rank: 1234,
-      medium_performance_rank: 876.54,
+      total_institutions: 12345,
+      total_teams: 98765,
+      total_participants: 1234567,
+      female_participants: 456789,
     },
+  ],
+  [
+    '/api/competitions/1/location-stats',
+    [{ name: eventEntry.location, total_teams: 98765, total_participants: 1234567 }],
+  ],
+  [
+    '/api/institutions/200/events/options',
+    [
+      {
+        id: 10,
+        name: eventEntry.name,
+        competition_id: 1,
+        competition_name: competitionOptions[0].name,
+        years: [2021, 2025],
+      },
+    ],
+  ],
+  [
+    '/api/institutions/200/events/10/performance',
+    [
+      {
+        year: 2021,
+        best_performance_team_name: teamOptions[0].name,
+        best_performance_rank: 1234,
+        average_performance_rank: 876.54,
+      },
+      {
+        year: 2025,
+        best_performance_team_name: teamOptions[0].name,
+        best_performance_rank: 234,
+        average_performance_rank: 321.45,
+      },
+    ],
+  ],
+  [
+    '/api/teams/100/competitions/1/structure',
     {
+      total_members: 123456,
+      female_participants: 45678,
+      events: [eventEntry],
+    },
+  ],
+  [
+    '/api/events/10/structure',
+    {
+      id: 10,
+      name: eventEntry.name,
+      level: 1,
+      scope: 'International',
+      competition: {
+        id: 1,
+        name: competitionOptions[0].name,
+      },
       year: 2025,
-      best_performance_team_name: teamOptions[0].name,
-      best_performance_rank: 234,
-      medium_performance_rank: 321.45,
+      years: [2021, 2025],
+      location_types: eventEntry.location_types,
+      instances: [
+        {
+          id: 1000,
+          date: eventEntry.date,
+          location: eventEntry.location,
+        },
+      ],
     },
-  ]],
-  ['/api/teams/100/competitions/1', { events: [eventEntry] }],
-  ['/api/events/10/stats', {
-    total_institutions: 12345,
-    total_teams: 98765,
-    total_participants: 1234567,
-    female_participants: 456789,
-  }],
-  ['/api/events/10/location_stats', [
-    { name: eventEntry.location, total_teams: 98765 },
-  ]],
+  ],
+  [
+    '/api/events/10/stats',
+    {
+      total_institutions: 12345,
+      total_teams: 98765,
+      total_participants: 1234567,
+      female_participants: 456789,
+    },
+  ],
+  [
+    '/api/events/10/location-stats',
+    [{ name: eventEntry.location, total_teams: 98765, total_participants: 1234567 }],
+  ],
 ]);
 
 const routes = [
@@ -173,7 +232,7 @@ const routes = [
   '/institutions/200?event=10',
   '/organizers',
   '/organizers/300?competition=1&year=2025',
-  `/events/10?year=2025&name=${encodeURIComponent(eventEntry.name)}&date=${eventEntry.date}&location=${encodeURIComponent(eventEntry.location)}&locationTypes=${eventEntry.location_types.join(',')}&competitionId=1&competitionName=${encodeURIComponent(competitionOptions[0].name)}`,
+  '/events/10?year=2025',
 ];
 
 const viewports = [
@@ -235,7 +294,10 @@ for (const viewport of viewports) {
 
   for (const route of routes) {
     await page.goto(`http://127.0.0.1:4173${route}`, { waitUntil: 'networkidle' });
-    await page.locator('.loading-state').waitFor({ state: 'detached', timeout: 10000 }).catch(() => {});
+    await page
+      .locator('.loading-state')
+      .waitFor({ state: 'detached', timeout: 10000 })
+      .catch(() => {});
 
     const issues = await page.evaluate(visibleElementIssues);
     const documentOverflow = await page.evaluate(() => ({
