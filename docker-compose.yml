@@ -34,6 +34,10 @@ services:
       - api
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - tls-certs:/etc/nginx/certs
 
 volumes:
   pgdata:
+  tls-certs:
