@@ -16,7 +16,7 @@ use sqlx::{Postgres, QueryBuilder};
 
 use crate::{
     errors::AppResult,
-    repositories::{Registry, types::IdNameRow},
+    repositories::{Registry, types::teams::TeamOptionRow},
 };
 
 /// Busca times disponíveis para seleção.
@@ -31,8 +31,9 @@ use crate::{
 /// - `institution_ids`: lista opcional de instituições usada como filtro.
 ///
 /// # Retorno
-/// Vetor de [`IdNameRow`] com `id` e `name` dos times encontrados, ordenado por
-/// nome.
+/// Vetor de [`TeamOptionRow`] com a identidade dos times e os metadados das
+/// respectivas instituições, ordenado deterministicamente por nome e
+/// instituição.
 ///
 /// # Erros
 /// Propaga erros emitidos pelo `sqlx` durante construção, bind ou execução da
@@ -41,12 +42,16 @@ pub(super) async fn find_options_by_competitions_and_institutions(
     repo: &Registry,
     competition_ids: Option<Vec<i32>>,
     institution_ids: Option<Vec<i32>>,
-) -> AppResult<Vec<IdNameRow>> {
+) -> AppResult<Vec<TeamOptionRow>> {
     let mut builder = QueryBuilder::<Postgres>::new(
         "SELECT DISTINCT
             t.id AS id,
-            t.name AS name
-        FROM team t ",
+            t.name AS name,
+            i.id AS institution_id,
+            i.name AS institution_name,
+            i.short_name AS institution_short_name
+        FROM team t
+        JOIN institution i ON i.id = t.institution_id ",
     );
 
     let mut first = true;
@@ -71,7 +76,7 @@ pub(super) async fn find_options_by_competitions_and_institutions(
             .push(") ");
     }
 
-    builder.push("ORDER BY t.name");
+    builder.push("ORDER BY t.name, i.short_name NULLS LAST, i.name, t.id");
 
     let rows = builder.build_query_as().fetch_all(&repo.pool).await?;
 

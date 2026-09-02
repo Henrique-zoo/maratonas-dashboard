@@ -9,6 +9,7 @@
 //! ## Submódulos
 //! - `event_location_stats`: organiza uma parte especializada deste escopo.
 //! - `event_year_stats`: organiza uma parte especializada deste escopo.
+//! - `event_year_structure`: define a representação anual autoritativa de um evento.
 //!
 //! ## Funções
 //! Este arquivo não declara funções de produção neste escopo.
@@ -18,6 +19,8 @@
 //!
 mod event_location_stats;
 mod event_year_stats;
+mod event_year_structure;
 
 pub use event_location_stats::*;
 pub use event_year_stats::*;
+pub use event_year_structure::*;

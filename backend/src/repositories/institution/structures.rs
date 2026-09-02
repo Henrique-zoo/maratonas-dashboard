@@ -20,8 +20,8 @@ use crate::{
 /// Busca linhas para montar a estrutura pública de instituições.
 ///
 /// A query seleciona os times das instituições informadas, resolve a
-/// localização principal da instituição e considera o último ano disponível de
-/// cada competição relacionada. O resultado denormalizado é consumido pelo
+/// localização principal da instituição e considera o último ano em que cada
+/// instituição participou de cada competição. O resultado denormalizado é consumido pelo
 /// service para montar a árvore `instituição -> competições -> eventos ->
 /// times`.
 ///
@@ -54,21 +54,34 @@ pub(super) async fn find_structures_by_ids(
             JOIN team t ON t.institution_id = i.id
             WHERE i.id = ANY($1::int[])
         ),
+        selected_institutions AS (
+            SELECT DISTINCT
+                institution_id,
+                institution_main_location_id
+            FROM selected_institution_teams
+        ),
         institution_location AS (
             SELECT
-                sit.institution_id,
+                si.institution_id,
                 STRING_AGG(lt.name, ', ' ORDER BY lt.depth) AS institution_location
-            FROM selected_institution_teams sit
-            CROSS JOIN LATERAL get_location_tree(sit.institution_main_location_id) lt
-            GROUP BY sit.institution_id
+            FROM selected_institutions si
+            CROSS JOIN LATERAL get_location_tree(si.institution_main_location_id) lt
+            GROUP BY si.institution_id
         ),
-        competition_latest_year AS (
+        institution_competition_years AS (
             SELECT
+                sit.institution_id,
                 e.competition_id,
-                MAX(EXTRACT(YEAR FROM ei.date))::int AS latest_year
-            FROM event e
-            JOIN event_instance ei ON ei.event_id = e.id
-            GROUP BY e.competition_id
+                MAX(EXTRACT(YEAR FROM ei.date))::int AS latest_year,
+                ARRAY_AGG(
+                    DISTINCT EXTRACT(YEAR FROM ei.date)::int
+                    ORDER BY EXTRACT(YEAR FROM ei.date)::int
+                ) AS competition_years
+            FROM selected_institution_teams sit
+            JOIN team_event te ON te.team_id = sit.team_id
+            JOIN event_instance ei ON ei.id = te.event_instance_id
+            JOIN event e ON e.id = ei.event_id
+            GROUP BY sit.institution_id, e.competition_id
         ),
         latest_event_instances AS (
             SELECT
@@ -88,14 +101,17 @@ pub(super) async fn find_structures_by_ids(
                 e.scope AS event_scope,
                 c.id AS competition_id,
                 c.name AS competition_name,
-                c.website_url AS competition_website_url
+                c.website_url AS competition_website_url,
+                icy.competition_years
             FROM selected_institution_teams sit
             JOIN team_event te ON te.team_id = sit.team_id
             JOIN event_instance ei ON ei.id = te.event_instance_id
             JOIN event e ON ei.event_id = e.id
             JOIN competition c ON c.id = e.competition_id
-            JOIN competition_latest_year cly ON cly.competition_id = c.id
-            WHERE EXTRACT(YEAR FROM ei.date)::int = cly.latest_year
+            JOIN institution_competition_years icy
+                ON icy.institution_id = sit.institution_id
+                AND icy.competition_id = c.id
+            WHERE EXTRACT(YEAR FROM ei.date)::int = icy.latest_year
         ),
         team_totals AS (
             SELECT
@@ -119,6 +135,7 @@ pub(super) async fn find_structures_by_ids(
             lei.competition_id,
             lei.competition_name,
             lei.competition_website_url,
+            lei.competition_years,
 
             lei.event_id,
             lei.event_name,

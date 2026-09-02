@@ -10,6 +10,7 @@
 //! - `handlers`: organiza uma parte especializada deste escopo.
 //! - `dtos`: organiza uma parte especializada deste escopo.
 //! - `errors`: organiza uma parte especializada deste escopo.
+//! - `extractors`: padroniza rejeições produzidas na extração de parâmetros HTTP.
 //! - `repositories`: organiza uma parte especializada deste escopo.
 //! - `services`: organiza uma parte especializada deste escopo.
 //! - `shared`: organiza uma parte especializada deste escopo.
@@ -24,6 +25,7 @@
 //!
 mod dtos;
 mod errors;
+mod extractors;
 mod handlers;
 mod repositories;
 mod services;

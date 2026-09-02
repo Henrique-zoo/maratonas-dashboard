@@ -7,6 +7,7 @@
 //! Expõe handlers HTTP pequenos e orientados a caso de uso.
 //!
 //! ## Funções
+//! - `get_structure`: Handler HTTP que retorna a identidade e as ocorrências anuais do evento.
 //! - `get_location_stats`: Handler HTTP que extrai dados da requisição, delega ao service e retorna payload serializável.
 //! - `get_stats_by_year`: Handler HTTP que extrai dados da requisição, delega ao service e retorna payload serializável.
 //!
@@ -14,15 +15,12 @@
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    response::IntoResponse,
-};
+use axum::{Json, extract::State, response::IntoResponse};
 
 use crate::{
     AppState,
     dtos::common::requests::{IdPath, LocationYearQuery, YearQuery},
+    extractors::{ApiPath, ApiQuery},
     services,
 };
 
@@ -41,8 +39,8 @@ use crate::{
 /// `IntoResponse`.
 pub async fn get_location_stats(
     State(state): State<AppState>,
-    Path(path): Path<IdPath>,
-    Query(query): Query<LocationYearQuery>,
+    ApiPath(path): ApiPath<IdPath>,
+    ApiQuery(query): ApiQuery<LocationYearQuery>,
 ) -> impl IntoResponse {
     services::events::get_location_stats(&state.repo, path.id, query.location_type, query.year)
         .await
@@ -63,10 +61,22 @@ pub async fn get_location_stats(
 /// Resposta JSON com totais anuais ou erro convertido por `IntoResponse`.
 pub async fn get_stats_by_year(
     State(state): State<AppState>,
-    Path(path): Path<IdPath>,
-    Query(query): Query<YearQuery>,
+    ApiPath(path): ApiPath<IdPath>,
+    ApiQuery(query): ApiQuery<YearQuery>,
 ) -> impl IntoResponse {
     services::events::get_stats_by_year(&state.repo, path.id, query.year)
+        .await
+        .map(Json)
+}
+
+/// Retorna os metadados autoritativos e as ocorrências do evento no ano
+/// solicitado. Sem `year`, o service seleciona o último ano disponível.
+pub async fn get_structure(
+    State(state): State<AppState>,
+    ApiPath(path): ApiPath<IdPath>,
+    ApiQuery(query): ApiQuery<YearQuery>,
+) -> impl IntoResponse {
+    services::events::get_structure(&state.repo, path.id, query.year)
         .await
         .map(Json)
 }

@@ -56,8 +56,13 @@ pub(super) async fn find_location_stats_by_competition(
                 COUNT(DISTINCT i.id)::int4 AS total_institutions,
                 COUNT(DISTINCT t.id)::int4 AS total_teams,
 
-                SUM(p.total_participants)::int4 AS total_participants,
-                SUM(p.female_participants)::int4 AS female_participants
+                COUNT(DISTINCT tem.member_id) FILTER (
+                    WHERE tem.role = 'Contestant'
+                )::int4 AS total_participants,
+                COUNT(DISTINCT tem.member_id) FILTER (
+                    WHERE tem.role = 'Contestant'
+                    AND m.gender = 'Female'
+                )::int4 AS female_participants
 
             FROM team_event te
             JOIN team t ON t.id = te.team_id
@@ -66,18 +71,8 @@ pub(super) async fn find_location_stats_by_competition(
             JOIN event_instance ei ON ei.id = te.event_instance_id
             JOIN event e ON e.id = ei.event_id
 
-            JOIN (
-                SELECT
-                    tem.team_event_id,
-                    COUNT(*) FILTER (WHERE tem.role = 'Contestant')::int4 AS total_participants,
-                    COUNT(*) FILTER (
-                        WHERE tem.role = 'Contestant'
-                        AND m.gender = 'Female'
-                    )::int4 AS female_participants
-                FROM team_event_member tem
-                JOIN member m ON m.id = tem.member_id
-                GROUP BY tem.team_event_id
-            ) p ON p.team_event_id = te.id
+            JOIN team_event_member tem ON tem.team_event_id = te.id
+            JOIN member m ON m.id = tem.member_id
 
             WHERE e.competition_id = $1::int
             AND lt.type = $2::location_type
@@ -121,26 +116,21 @@ pub(super) async fn find_competition_stats_by_year(
         "SELECT
                 COUNT(DISTINCT i.id)::int4 AS total_institutions,
                 COUNT(DISTINCT t.id)::int4 AS total_teams,
-                SUM(p.total_participants)::int4 AS total_participants,
-                SUM(p.female_participants)::int4 AS female_participants
+                COUNT(DISTINCT tem.member_id) FILTER (
+                    WHERE tem.role = 'Contestant'
+                )::int4 AS total_participants,
+                COUNT(DISTINCT tem.member_id) FILTER (
+                    WHERE tem.role = 'Contestant'
+                    AND m.gender = 'Female'
+                )::int4 AS female_participants
             FROM competition c
             JOIN event e ON e.competition_id = c.id
             JOIN event_instance ei ON ei.event_id = e.id
             JOIN team_event te ON te.event_instance_id = ei.id
             JOIN team t ON t.id = te.team_id
             JOIN institution i ON i.id = t.institution_id
-            JOIN (
-                SELECT
-                    tem.team_event_id,
-                    COUNT(*) FILTER (WHERE tem.role = 'Contestant') AS total_participants,
-                    COUNT(*) FILTER (
-                        WHERE tem.role = 'Contestant'
-                        AND m.gender = 'Female'
-                    ) AS female_participants
-                FROM team_event_member tem
-                JOIN member m ON m.id = tem.member_id
-                GROUP BY tem.team_event_id
-            ) p ON p.team_event_id = te.id
+            JOIN team_event_member tem ON tem.team_event_id = te.id
+            JOIN member m ON m.id = tem.member_id
 
             WHERE c.id = $1
                 AND EXTRACT(YEAR FROM ei.date)::int = $2",

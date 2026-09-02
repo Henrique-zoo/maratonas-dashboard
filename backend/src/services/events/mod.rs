@@ -9,6 +9,7 @@
 //! ## Submódulos
 //! - `get_location_stats`: organiza uma parte especializada deste escopo.
 //! - `get_stats_by_year`: organiza uma parte especializada deste escopo.
+//! - `get_structure`: seleciona e monta a estrutura anual de um evento.
 //!
 //! ## Funções
 //! Este arquivo não declara funções de produção neste escopo.
@@ -18,6 +19,8 @@
 //!
 mod get_location_stats;
 mod get_stats_by_year;
+mod get_structure;
 
 pub use get_location_stats::get_location_stats;
 pub use get_stats_by_year::get_stats_by_year;
+pub use get_structure::get_structure;

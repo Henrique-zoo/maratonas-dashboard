@@ -71,7 +71,7 @@ pub(super) async fn find_event_performance_over_time(
                     PARTITION BY year
                     ORDER BY rank ASC, team_id ASC
                 ) AS rn,
-                AVG(rank) OVER (PARTITION BY year)::float4 AS medium_performance_rank
+                AVG(rank) OVER (PARTITION BY year)::float4 AS average_performance_rank
             FROM selected_event_teams
         )
         SELECT
@@ -79,7 +79,7 @@ pub(super) async fn find_event_performance_over_time(
             rank AS best_performance_rank,
             team_id AS best_performance_team_id,
             team_name AS best_performance_team_name,
-            medium_performance_rank
+            average_performance_rank
         FROM ranked
         WHERE rn = 1
         ORDER BY year",

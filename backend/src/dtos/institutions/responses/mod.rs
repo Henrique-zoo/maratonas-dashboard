@@ -7,6 +7,7 @@
 //! Define payloads serializáveis da API e conversões de estruturas internas para JSON estável.
 //!
 //! ## Submódulos
+//! - `event_option`: define as opções históricas de evento de uma instituição.
 //! - `event_performance`: organiza uma parte especializada deste escopo.
 //! - `structure`: organiza uma parte especializada deste escopo.
 //!
@@ -16,8 +17,10 @@
 //! ## Tipos
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
+mod event_option;
 mod event_performance;
 mod structure;
 
+pub use event_option::*;
 pub use event_performance::*;
 pub use structure::*;

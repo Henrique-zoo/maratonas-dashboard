@@ -153,10 +153,17 @@ pub(super) async fn find_structures_by_ids(
                 event_instance_id,
                 COUNT(DISTINCT institution_id)::int4 AS event_total_institutions,
                 COUNT(DISTINCT team_id)::int4 AS event_total_teams,
-                SUM(team_total_members)::int4 AS event_total_participants,
-                SUM(team_female_members)::int4 AS event_female_participants
-            FROM latest_year_event_team_rows
-            GROUP BY event_instance_id
+                COUNT(DISTINCT tem.member_id) FILTER (
+                    WHERE tem.role = 'Contestant'
+                )::int4 AS event_total_participants,
+                COUNT(DISTINCT tem.member_id) FILTER (
+                    WHERE tem.role = 'Contestant'
+                    AND m.gender = 'Female'
+                )::int4 AS event_female_participants
+            FROM latest_year_event_team_rows lyetr
+            JOIN team_event_member tem ON tem.team_event_id = lyetr.team_event_id
+            JOIN member m ON m.id = tem.member_id
+            GROUP BY lyetr.event_instance_id
         ),
         event_location_base AS (
             SELECT DISTINCT

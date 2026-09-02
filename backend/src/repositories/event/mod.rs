@@ -8,6 +8,7 @@
 //!
 //! ## Submódulos
 //! - `stats`: organiza uma parte especializada deste escopo.
+//! - `structure`: consulta identidade, anos e ocorrências concretas de um evento.
 //! - `trait_def`: organiza uma parte especializada deste escopo.
 //!
 //! ## Funções
@@ -17,6 +18,7 @@
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
 mod stats;
+mod structure;
 mod trait_def;
 
 pub use trait_def::EventRepository;

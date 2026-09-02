@@ -19,14 +19,19 @@ use crate::{AppState, handlers};
 /// Cria o roteador do domínio de eventos.
 ///
 /// Endpoints registrados:
-/// - `GET /events/{id}/location_stats`
+/// - `GET /events/{id}/structure`
+/// - `GET /events/{id}/location-stats`
 /// - `GET /events/{id}/stats`
 ///
 /// Cada rota delega para handlers em `controllers::events`.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
-            "/events/{id}/location_stats",
+            "/events/{id}/structure",
+            get(handlers::events::get_structure),
+        )
+        .route(
+            "/events/{id}/location-stats",
             get(handlers::events::get_location_stats),
         )
         .route(

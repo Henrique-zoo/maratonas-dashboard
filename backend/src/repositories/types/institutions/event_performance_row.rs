@@ -29,5 +29,5 @@ pub struct EventPerformanceRow {
     /// Nome do time que alcançou a melhor colocação.
     pub best_performance_team_name: String,
     /// Média das colocações dos times da instituição no ano.
-    pub medium_performance_rank: f32,
+    pub average_performance_rank: f32,
 }

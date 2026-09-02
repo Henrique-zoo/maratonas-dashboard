@@ -15,11 +15,7 @@
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    response::IntoResponse,
-};
+use axum::{Json, extract::State, response::IntoResponse};
 
 use crate::{
     AppState,
@@ -27,6 +23,7 @@ use crate::{
         common::requests::YearQuery,
         teams::requests::{CompetitionStructurePath, OptionsQuery, StructuresQuery},
     },
+    extractors::{ApiPath, ApiQuery},
     services,
 };
 
@@ -43,7 +40,7 @@ use crate::{
 /// Resposta JSON com a lista de opções ou erro convertido por `IntoResponse`.
 pub async fn get_options(
     State(state): State<AppState>,
-    Query(filters): Query<OptionsQuery>,
+    ApiQuery(filters): ApiQuery<OptionsQuery>,
 ) -> impl IntoResponse {
     services::teams::get_options(
         &state.repo,
@@ -68,7 +65,7 @@ pub async fn get_options(
 /// `IntoResponse`.
 pub async fn get_structures(
     State(state): State<AppState>,
-    Query(filter): Query<StructuresQuery>,
+    ApiQuery(filter): ApiQuery<StructuresQuery>,
 ) -> impl IntoResponse {
     services::teams::get_structures(&state.repo, filter.team_ids.into_inner())
         .await
@@ -89,8 +86,8 @@ pub async fn get_structures(
 /// Resposta JSON com a estrutura anual ou erro convertido por `IntoResponse`.
 pub async fn get_structure_by_year(
     State(state): State<AppState>,
-    Path(path): Path<CompetitionStructurePath>,
-    Query(query): Query<YearQuery>,
+    ApiPath(path): ApiPath<CompetitionStructurePath>,
+    ApiQuery(query): ApiQuery<YearQuery>,
 ) -> impl IntoResponse {
     services::teams::get_structure_by_year(
         &state.repo,

@@ -7,6 +7,7 @@
 //! Organiza structs `FromRow` por domínio para separar claramente formato de banco e DTO externo.
 //!
 //! ## Submódulos
+//! - `team_option_row`: representa opções de equipe com contexto institucional.
 //! - `team_structure_row`: organiza uma parte especializada deste escopo.
 //!
 //! ## Funções
@@ -15,6 +16,8 @@
 //! ## Tipos
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
+mod team_option_row;
 mod team_structure_row;
 
+pub use team_option_row::TeamOptionRow;
 pub use team_structure_row::TeamStructureRow;

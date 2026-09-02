@@ -57,6 +57,10 @@ pub struct CompetitionSubStructure {
     pub name: String,
     /// URL pública da competição, quando cadastrada.
     pub website_url: Option<String>,
+    /// Anos em que a instituição participou da competição.
+    pub years: Vec<u32>,
+    /// Ano ao qual pertencem os eventos deste snapshot.
+    pub snapshot_year: u32,
     /// Eventos da competição com participação da instituição.
     pub events: Vec<EventSubStructure>,
 }
@@ -131,6 +135,7 @@ pub struct TempCompetitionSubStructure {
     pub name: String,
     /// URL pública da competição, quando cadastrada.
     pub website_url: Option<String>,
+    pub years: Vec<u32>,
     /// Eventos intermediários indexados pelo ID do evento.
     pub events: IndexMap<i32, TempEventSubStructure>,
 }
@@ -187,6 +192,8 @@ impl From<TempCompetitionSubStructure> for CompetitionSubStructure {
             id: value.id,
             name: value.name,
             website_url: value.website_url,
+            snapshot_year: value.years.iter().copied().max().unwrap_or_default(),
+            years: value.years,
             events: {
                 value
                     .events
@@ -246,12 +253,14 @@ impl TempCompetitionSubStructure {
         id: i32,
         name: String,
         website_url: Option<String>,
+        years: Vec<i32>,
         events: IndexMap<i32, TempEventSubStructure>,
     ) -> Self {
         Self {
             id,
             name,
             website_url,
+            years: years.into_iter().map(|year| year as u32).collect(),
             events,
         }
     }
@@ -344,6 +353,7 @@ mod tests {
                 5,
                 "ICPC".to_string(),
                 Some("https://icpc.org".to_string()),
+                vec![2023, 2024],
                 events,
             ),
         );
@@ -359,6 +369,7 @@ mod tests {
         assert_eq!(institution.id, 1);
         assert_eq!(institution.short_name.as_deref(), Some("UFRJ"));
         assert_eq!(institution.competitions.len(), 1);
+        assert_eq!(institution.competitions[0].snapshot_year, 2024);
         assert_eq!(institution.competitions[0].events.len(), 1);
         assert_eq!(institution.competitions[0].events[0].level, Some(1));
         assert_eq!(institution.competitions[0].events[0].teams[0].rank, 2);

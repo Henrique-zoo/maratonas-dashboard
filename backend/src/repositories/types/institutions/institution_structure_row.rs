@@ -39,6 +39,8 @@ pub struct InstitutionStructureRow {
     pub competition_name: String,
     /// URL pública da competição, quando cadastrada.
     pub competition_website_url: Option<String>,
+    /// Anos em que a instituição participou da competição.
+    pub competition_years: Vec<i32>,
 
     /// Identificador do evento.
     pub event_id: i32,

@@ -17,11 +17,7 @@
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    response::IntoResponse,
-};
+use axum::{Json, extract::State, response::IntoResponse};
 
 use crate::{
     AppState,
@@ -29,6 +25,7 @@ use crate::{
         common::requests::{IdPath, LocationYearQuery, YearQuery},
         competitions::requests::{OptionsQuery, StructuresQuery},
     },
+    extractors::{ApiPath, ApiQuery},
     services,
 };
 
@@ -45,7 +42,7 @@ use crate::{
 /// Resposta JSON com a lista de opções ou erro convertido por `IntoResponse`.
 pub async fn get_options(
     State(state): State<AppState>,
-    Query(filter): Query<OptionsQuery>,
+    ApiQuery(filter): ApiQuery<OptionsQuery>,
 ) -> impl IntoResponse {
     services::competitions::get_options(&state.repo, filter.organizer_ids.into_inner())
         .await
@@ -66,7 +63,7 @@ pub async fn get_options(
 /// `IntoResponse`.
 pub async fn get_structures(
     State(state): State<AppState>,
-    Query(filter): Query<StructuresQuery>,
+    ApiQuery(filter): ApiQuery<StructuresQuery>,
 ) -> impl IntoResponse {
     services::competitions::get_structures(&state.repo, filter.competition_ids.into_inner())
         .await
@@ -88,8 +85,8 @@ pub async fn get_structures(
 /// `IntoResponse`.
 pub async fn get_location_stats(
     State(state): State<AppState>,
-    Path(path): Path<IdPath>,
-    Query(query): Query<LocationYearQuery>,
+    ApiPath(path): ApiPath<IdPath>,
+    ApiQuery(query): ApiQuery<LocationYearQuery>,
 ) -> impl IntoResponse {
     services::competitions::get_location_stats(
         &state.repo,
@@ -115,8 +112,8 @@ pub async fn get_location_stats(
 /// Resposta JSON com totais anuais ou erro convertido por `IntoResponse`.
 pub async fn get_stats_by_year(
     State(state): State<AppState>,
-    Path(path): Path<IdPath>,
-    Query(query): Query<YearQuery>,
+    ApiPath(path): ApiPath<IdPath>,
+    ApiQuery(query): ApiQuery<YearQuery>,
 ) -> impl IntoResponse {
     services::competitions::get_stats_by_year(&state.repo, path.id, query.year)
         .await
@@ -137,8 +134,8 @@ pub async fn get_stats_by_year(
 /// Resposta JSON com a estrutura anual ou erro convertido por `IntoResponse`.
 pub async fn get_structure_by_year(
     State(state): State<AppState>,
-    Path(id): Path<i32>,
-    Query(query): Query<YearQuery>,
+    ApiPath(id): ApiPath<i32>,
+    ApiQuery(query): ApiQuery<YearQuery>,
 ) -> impl IntoResponse {
     services::competitions::get_structure_by_year(&state.repo, id, query.year)
         .await

@@ -12,12 +12,12 @@
 //! ## Tipos
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
-use crate::{dtos::common::responses::OptionItem, errors::AppResult, repositories::TeamRepository};
+use crate::{dtos::teams::responses::TeamOption, errors::AppResult, repositories::TeamRepository};
 
 /// Lista opções de times para filtros da API.
 ///
 /// Pode aplicar filtro combinado por competições e instituições antes de
-/// converter para `OptionItem`.
+/// converter para [`TeamOption`].
 ///
 /// # Parâmetros
 /// - `repo`: contrato de acesso a dados de times.
@@ -25,7 +25,7 @@ use crate::{dtos::common::responses::OptionItem, errors::AppResult, repositories
 /// - `institution_ids`: filtro opcional por instituições.
 ///
 /// # Retorno
-/// - `Ok(Vec<OptionItem>)` com pares de ID e nome de times.
+/// - `Ok(Vec<TeamOption>)` com a identidade dos times e de suas instituições.
 ///
 /// # Erros
 /// - Propaga erros do repositório.
@@ -46,12 +46,12 @@ pub async fn get_options(
     repo: &dyn TeamRepository,
     competition_ids: Option<Vec<i32>>,
     institution_ids: Option<Vec<i32>>,
-) -> AppResult<Vec<OptionItem>> {
+) -> AppResult<Vec<TeamOption>> {
     let options = repo
         .find_options_by_competitions_and_institutions(competition_ids, institution_ids)
         .await?
         .into_iter()
-        .map(OptionItem::from)
+        .map(TeamOption::from)
         .collect();
 
     Ok(options)
@@ -63,7 +63,7 @@ mod tests {
 
     use crate::{
         errors::AppError,
-        repositories::{MockTeamRepository, types::IdNameRow},
+        repositories::{MockTeamRepository, types::teams::TeamOptionRow},
     };
 
     #[tokio::test]
@@ -75,9 +75,12 @@ mod tests {
                 mockall::predicate::eq(Some(vec![5])),
             )
             .returning(|_, _| {
-                Ok(vec![IdNameRow {
+                Ok(vec![TeamOptionRow {
                     id: 1000,
                     name: "Bit Masters".to_string(),
+                    institution_id: 5,
+                    institution_name: "Federal University".to_string(),
+                    institution_short_name: Some("FU".to_string()),
                 }])
             });
 
@@ -88,6 +91,9 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].id, 1000);
         assert_eq!(result[0].name, "Bit Masters");
+        assert_eq!(result[0].institution_id, 5);
+        assert_eq!(result[0].institution_name, "Federal University");
+        assert_eq!(result[0].institution_short_name.as_deref(), Some("FU"));
     }
 
     #[tokio::test]

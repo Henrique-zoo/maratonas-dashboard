@@ -8,6 +8,7 @@
 //!
 //! ## Submódulos
 //! - `event_stats`: organiza uma parte especializada deste escopo.
+//! - `event_structure`: modela as linhas da consulta anual de estrutura de evento.
 //!
 //! ## Funções
 //! Este arquivo não declara funções de produção neste escopo.
@@ -16,5 +17,7 @@
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
 mod event_stats;
+mod event_structure;
 
 pub use event_stats::*;
+pub use event_structure::*;

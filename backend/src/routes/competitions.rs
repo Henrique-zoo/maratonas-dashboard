@@ -23,7 +23,7 @@ use crate::{AppState, handlers};
 /// - `GET /competitions/structures`
 /// - `GET /competitions/{id}/structure`
 /// - `GET /competitions/{id}/stats`
-/// - `GET /competitions/{id}/location_stats`
+/// - `GET /competitions/{id}/location-stats`
 ///
 /// Cada rota delega para handlers em `controllers::competitions`.
 pub fn router() -> Router<AppState> {
@@ -45,7 +45,7 @@ pub fn router() -> Router<AppState> {
             get(handlers::competitions::get_stats_by_year),
         )
         .route(
-            "/competitions/{id}/location_stats",
+            "/competitions/{id}/location-stats",
             get(handlers::competitions::get_location_stats),
         )
 }

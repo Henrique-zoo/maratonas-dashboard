@@ -51,6 +51,8 @@ pub struct CompetitionStructureRow {
     /// Tipos de localização presentes nas equipes do evento.
     pub event_location_types: Vec<LocationType>,
 
+    /// Identificador da instituição vinculada ao time.
+    pub institution_id: i32,
     /// Nome da instituição vinculada ao time.
     pub institution_name: String,
     /// Nome curto da instituição, quando cadastrado.
@@ -92,6 +94,8 @@ pub struct CompetitionYearStructureRow {
     /// Tipos de localização presentes nas equipes do evento.
     pub event_location_types: Vec<LocationType>,
 
+    /// Identificador da instituição vinculada ao time.
+    pub institution_id: i32,
     /// Nome da instituição vinculada ao time.
     pub institution_name: String,
     /// Nome curto da instituição, quando cadastrado.

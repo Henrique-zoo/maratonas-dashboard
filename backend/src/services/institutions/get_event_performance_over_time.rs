@@ -120,7 +120,7 @@ mod tests {
                     best_performance_rank: 1,
                     best_performance_team_id: 1000,
                     best_performance_team_name: "Rio Coders".to_string(),
-                    medium_performance_rank: 2.4,
+                    average_performance_rank: 2.4,
                 }])
             });
 

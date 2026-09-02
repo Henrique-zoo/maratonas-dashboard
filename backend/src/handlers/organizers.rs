@@ -15,11 +15,7 @@
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
 
-use axum::{
-    Json, debug_handler,
-    extract::{Path, Query, State},
-    response::IntoResponse,
-};
+use axum::{Json, debug_handler, extract::State, response::IntoResponse};
 
 use crate::{
     AppState,
@@ -27,6 +23,7 @@ use crate::{
         common::requests::{IdPath, YearQuery},
         organizers::requests::StructuresQuery,
     },
+    extractors::{ApiPath, ApiQuery},
     services,
 };
 
@@ -61,7 +58,7 @@ pub async fn get_options(State(state): State<AppState>) -> impl IntoResponse {
 /// `IntoResponse`.
 pub async fn get_structures(
     State(state): State<AppState>,
-    Query(filter): Query<StructuresQuery>,
+    ApiQuery(filter): ApiQuery<StructuresQuery>,
 ) -> impl IntoResponse {
     services::organizers::get_structures(&state.repo, filter.organizer_ids.into_inner())
         .await
@@ -82,8 +79,8 @@ pub async fn get_structures(
 /// Resposta JSON com a estrutura anual ou erro convertido por `IntoResponse`.
 pub async fn get_structure_by_year(
     State(state): State<AppState>,
-    Path(path): Path<IdPath>,
-    Query(query): Query<YearQuery>,
+    ApiPath(path): ApiPath<IdPath>,
+    ApiQuery(query): ApiQuery<YearQuery>,
 ) -> impl IntoResponse {
     services::organizers::get_structure_by_year(&state.repo, path.id, query.year)
         .await
