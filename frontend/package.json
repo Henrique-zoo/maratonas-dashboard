@@ -1,6 +1,7 @@
 {
   "name": "frontend",
   "version": "1.0.0",
+  "packageManager": "bun@1.3.14",
   "description": "",
   "type": "module",
   "scripts": {
@@ -11,10 +12,15 @@
     "lint:css": "stylelint \"app/**/*.css\"",
     "format": "prettier --write \"app/**/*.{html,css,js}\" \"tests/**/*.js\" \"*.{js,json}\"",
     "format:check": "prettier --check \"app/**/*.{html,css,js}\" \"tests/**/*.js\" \"*.{js,json}\"",
-    "check": "npm run lint && npm run lint:css && npm run build",
-    "test:e2e:install": "playwright install chromium",
-    "test:e2e:deps": "playwright install-deps chromium",
-    "test:e2e": "playwright test"
+    "quality": "bun run lint && bun run lint:css",
+    "check": "bun run quality && bun run build && bun run test:coverage",
+    "test:unit": "bun test tests/unit",
+    "test:coverage": "bun test tests/unit --coverage",
+    "test:contract": "bun test tests/contracts",
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "test:e2e:list": "playwright test --list",
+    "test:e2e": "playwright test",
+    "test:e2e:fullstack": "playwright test --config playwright.fullstack.config.js"
   },
   "keywords": [],
   "author": "",
