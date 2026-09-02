@@ -4,7 +4,7 @@ use crate::ApiWorld;
 
 use super::assert_table_values;
 
-#[given(regex = r#"^existe a competicao "([^"]+)"$"#)]
+#[given(regex = r#"^a competition named "([^"]+)" exists$"#)]
 fn competition_exists(world: &mut ApiWorld, name: String) {
     assert!(
         world.home.competition_exists(&name),
@@ -12,13 +12,13 @@ fn competition_exists(world: &mut ApiWorld, name: String) {
     );
 }
 
-#[when(regex = r#"^seleciono "([^"]+)" no filtro de competicao$"#)]
+#[when(regex = r#"^I select "([^"]+)" in the competition filter$"#)]
 fn select_competition(world: &mut ApiWorld, name: String) {
     world.home.request_count_before_last_interaction = world.request_count;
     world.home.select_competition(&name);
 }
 
-#[then("as opcoes do filtro de instituicoes devem ser:")]
+#[then("the institution filter options should be:")]
 fn institution_filter_options(world: &mut ApiWorld, #[step] step: &Step) {
     assert_table_values(step, world.home.institution_option_names());
 }

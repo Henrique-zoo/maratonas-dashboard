@@ -11,17 +11,25 @@ async fn backend_api_is_running(world: &mut ApiWorld) {
     assert!(world.api_is_running());
 }
 
-#[given("o contexto de filtros do index foi carregado")]
+#[given("the deterministic BDD fixture is loaded")]
+async fn deterministic_fixture_is_loaded(world: &mut ApiWorld) {
+    assert!(
+        world.fixture_is_loaded().await,
+        "expected the dedicated BDD fixture to be loaded",
+    );
+}
+
+#[given("the home page filter context is loaded")]
 async fn home_filter_context_is_loaded(world: &mut ApiWorld) {
     world.load_home_filter_context().await;
 }
 
-#[given("estou na pagina index")]
+#[given("I am on the home page")]
 fn open_home_page(world: &mut ApiWorld) {
     world.home.open_home();
 }
 
-#[given(regex = r#"^existe a organizacao "([^"]+)"$"#)]
+#[given(regex = r#"^an organizer named "([^"]+)" exists$"#)]
 fn organization_exists(world: &mut ApiWorld, name: String) {
     assert!(
         world.home.organizer_exists(&name),
@@ -29,23 +37,23 @@ fn organization_exists(world: &mut ApiWorld, name: String) {
     );
 }
 
-#[when(regex = r#"^seleciono "([^"]+)" no filtro de organizacao$"#)]
+#[when(regex = r#"^I select "([^"]+)" in the organizer filter$"#)]
 fn select_organization(world: &mut ApiWorld, name: String) {
     world.home.request_count_before_last_interaction = world.request_count;
     world.home.select_organizer(&name);
 }
 
-#[when("clico em Apply Filters")]
+#[when("I click Apply Filters")]
 fn apply_filters(world: &mut ApiWorld) {
     world.home.apply_filters();
 }
 
-#[then(regex = r#"^devo continuar na pagina "([^"]+)"$"#)]
+#[then(regex = r#"^I should remain on page "([^"]+)"$"#)]
 fn should_stay_on_page(world: &mut ApiWorld, expected_path: String) {
     assert_eq!(world.home.current_path, expected_path);
 }
 
-#[then("a selecao nao deve enviar request ao backend")]
+#[then("the selection should not send a request to the backend")]
 fn selection_should_not_request_backend(world: &mut ApiWorld) {
     assert_eq!(
         world.request_count, world.home.request_count_before_last_interaction,
@@ -53,27 +61,27 @@ fn selection_should_not_request_backend(world: &mut ApiWorld) {
     );
 }
 
-#[then(regex = r#"^devo estar na pagina "([^"]+)"$"#)]
+#[then(regex = r#"^I should be on page "([^"]+)"$"#)]
 fn should_be_on_page(world: &mut ApiWorld, expected_path: String) {
     assert_eq!(world.home.current_path, expected_path);
 }
 
-#[then("as opcoes do filtro de competicoes devem ser:")]
+#[then("the competition filter options should be:")]
 fn competition_filter_options(world: &mut ApiWorld, #[step] step: &Step) {
     assert_table_values(step, world.home.competition_option_names());
 }
 
-#[then(expr = "devo ver {int} competicoes no resumo dos filtros")]
+#[then(regex = r"^I should see (\d+) competitions? in the filter summary$")]
 fn summary_competitions(world: &mut ApiWorld, expected: usize) {
     assert_eq!(world.home.summary().competitions, expected);
 }
 
-#[then(expr = "devo ver {int} eventos no resumo dos filtros")]
+#[then(regex = r"^I should see (\d+) events? in the filter summary$")]
 fn summary_events(world: &mut ApiWorld, expected: usize) {
     assert_eq!(world.home.summary().events, expected);
 }
 
-#[then(expr = "devo ver {int} times no resumo dos filtros")]
+#[then(regex = r"^I should see (\d+) teams? in the filter summary$")]
 fn summary_teams(world: &mut ApiWorld, expected: usize) {
     assert_eq!(world.home.summary().teams, expected);
 }
