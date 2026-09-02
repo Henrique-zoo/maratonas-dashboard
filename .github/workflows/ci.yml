@@ -18,7 +18,7 @@ permissions:
 jobs:
   backend:
     name: Backend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
@@ -36,7 +36,13 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy, rustfmt
+          toolchain: 1.98.0
+          components: clippy, rustfmt, llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov@0.9.0
 
       - name: Cache Cargo registry and build artifacts
         uses: Swatinem/rust-cache@v2
@@ -52,12 +58,31 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings -A dead_code -A clippy::too_many_arguments
 
-      - name: Test
-        run: cargo test --all-targets --all-features
+      - name: Test and coverage
+        run: make coverage-all
+
+      - name: Upload backend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/target/coverage/all
+          if-no-files-found: error
+
+      - name: Build backend for the full-stack smoke test
+        run: cargo build --locked --bin backend
+
+      - name: Upload backend smoke-test binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-smoke-binary
+          path: backend/target/debug/backend
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
   frontend:
     name: Frontend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
@@ -67,28 +92,147 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          bun-version: 1.3.14
 
       - name: Install dependencies
-        run: npm ci
+        run: bun ci
 
-      - name: Check
-        run: npm run check
+      - name: Quality, build, and unit coverage
+        run: bun run check
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
+          if-no-files-found: error
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: bun run test:e2e:install
 
       - name: End-to-end tests
-        run: npm run test:e2e
+        run: bun run test:e2e
+
+      - name: Upload Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore
+          retention-days: 14
+
+  full-stack-smoke:
+    name: Full-stack smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs:
+      - backend
+      - frontend
+
+    services:
+      postgres:
+        image: postgres:16.14-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: maratona_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d maratona_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun ci
+
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: bun run test:e2e:install
+
+      - name: Download backend smoke-test binary
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-smoke-binary
+          path: backend/target/debug
+
+      - name: Start API and load deterministic fixture
+        env:
+          DATABASE_URL: postgres://user:password@127.0.0.1:5432/maratona_db
+        run: |
+          set -euo pipefail
+          chmod +x backend/target/debug/backend
+          nohup backend/target/debug/backend > "${RUNNER_TEMP}/md-stack-backend.log" 2>&1 &
+          echo "$!" > "${RUNNER_TEMP}/md-stack-backend.pid"
+
+          ready=false
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:8000/organizers/options > /dev/null; then
+              ready=true
+              break
+            fi
+
+            if ! kill -0 "$(cat "${RUNNER_TEMP}/md-stack-backend.pid")" 2>/dev/null; then
+              cat "${RUNNER_TEMP}/md-stack-backend.log"
+              exit 1
+            fi
+
+            sleep 1
+          done
+
+          if [ "$ready" != true ]; then
+            cat "${RUNNER_TEMP}/md-stack-backend.log"
+            exit 1
+          fi
+
+          docker exec -i "${{ job.services.postgres.id }}" \
+            psql -U user -d maratona_db -v ON_ERROR_STOP=1 \
+            < backend/tests/fixtures/api_bdd.sql
+
+      - name: Frontend-backend contract tests
+        working-directory: frontend
+        env:
+          CONTRACT_API_URL: http://127.0.0.1:8000
+        run: bun run test:contract
+
+      - name: Full-stack browser smoke test
+        working-directory: frontend
+        env:
+          API_PROXY_TARGET: http://127.0.0.1:8000
+        run: bun run test:e2e:fullstack
+
+      - name: Upload full-stack diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-stack-smoke-results
+          path: |
+            frontend/playwright-fullstack-report
+            frontend/test-results/full-stack
+            ${{ runner.temp }}/md-stack-backend.log
+          if-no-files-found: ignore
+          retention-days: 14
 
   docker:
     name: Docker images
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs:
       - backend
