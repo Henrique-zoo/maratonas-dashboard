@@ -1,6 +1,8 @@
 -- Dedicated, deterministic data set for the HTTP BDD suite.
 -- It deliberately replaces the demonstration seed installed by migrations.
 
+BEGIN;
+
 TRUNCATE TABLE
     submission,
     authorship,
@@ -159,3 +161,5 @@ SELECT setval(pg_get_serial_sequence('institution', 'id'), (SELECT MAX(id) FROM 
 SELECT setval(pg_get_serial_sequence('team', 'id'), (SELECT MAX(id) FROM team));
 SELECT setval(pg_get_serial_sequence('team_event', 'id'), (SELECT MAX(id) FROM team_event));
 SELECT setval(pg_get_serial_sequence('member', 'id'), (SELECT MAX(id) FROM member));
+
+COMMIT;
