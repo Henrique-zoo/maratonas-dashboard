@@ -196,6 +196,450 @@
   gap: 1rem;
 }
 
+.competition-workbench {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.32fr) minmax(0, 1fr);
+  gap: var(--space-block);
+  align-items: start;
+}
+
+.competition-workbench__aside,
+.competition-workbench__main {
+  min-width: 0;
+}
+
+.competition-workbench__main {
+  display: grid;
+  gap: var(--space-block);
+}
+
+.competition-filter-drawer {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 1rem;
+  padding: var(--space-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 252, 244, 0.94);
+  box-shadow: var(--shadow);
+}
+
+.competition-filter-drawer summary {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.competition-filter-drawer summary::marker {
+  color: var(--ink-faint);
+}
+
+.competition-filter-drawer summary span,
+.competition-scope-form > .filter-step > span {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.competition-filter-drawer summary strong {
+  min-width: 0;
+  color: var(--ink);
+  overflow-wrap: break-word;
+  text-align: right;
+}
+
+.competition-scope-form {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.competition-scope-form label {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.competition-scope-form .button {
+  width: 100%;
+}
+
+.competition-year-form {
+  display: flex;
+  flex: 0 1 300px;
+  gap: 0.65rem;
+  align-items: end;
+  min-width: min(100%, 260px);
+}
+
+.competition-year-form .filter-step {
+  flex: 1 1 150px;
+}
+
+.competition-year-form .button {
+  flex: 0 0 auto;
+}
+
+.competition-filter-drawer__stats {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.competition-events-table .competition-event-row {
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.competition-events-table .competition-event-row:hover,
+.competition-events-table .competition-event-row.is-expanded {
+  background: rgba(13, 56, 120, 0.04);
+}
+
+.event-row-toggle {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+  gap: 0.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.event-row-toggle span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 0.18rem;
+}
+
+.event-row-toggle small {
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.event-row-toggle__icon {
+  width: 0.58rem;
+  height: 0.58rem;
+  flex: 0 0 auto;
+  margin-top: 0.28rem;
+  border-right: 2px solid var(--ink-faint);
+  border-bottom: 2px solid var(--ink-faint);
+  transform: rotate(-45deg);
+  transition: transform 140ms ease;
+}
+
+.competition-event-row.is-expanded .event-row-toggle__icon {
+  transform: rotate(45deg);
+}
+
+.competition-event-ranking-row td {
+  padding: 0;
+  background: rgba(255, 252, 244, 0.78);
+}
+
+.competition-event-ranking-row[hidden] {
+  display: none;
+}
+
+.event-ranking-panel {
+  display: grid;
+  gap: 1rem;
+  padding: var(--space-panel);
+  border-top: 1px solid var(--line);
+}
+
+.event-ranking-panel__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-panel);
+  min-width: 0;
+}
+
+.event-ranking-panel__header h3 {
+  margin: 0;
+  font-family: 'Bitter', 'IBM Plex Serif', Georgia, serif;
+}
+
+.event-ranking-panel .card-note {
+  margin-top: 0;
+}
+
+.event-ranking-panel .table-wrap {
+  margin-top: 1rem;
+}
+
+.organizer-index-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-block);
+  align-items: start;
+}
+
+.organizer-index-layout.has-inspector {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.34fr);
+}
+
+.organizer-index-layout__main {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-block);
+}
+
+.organizer-structure-card,
+.organizer-inspector {
+  min-width: 0;
+  padding: var(--space-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.organizer-inspector {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: var(--space-panel);
+  animation: inspector-enter 180ms ease-out both;
+}
+
+.organizer-inspector .empty-state {
+  box-shadow: none;
+}
+
+.organizer-inspector__drawer {
+  display: grid;
+  gap: var(--space-panel);
+}
+
+.organizer-inspector__drawer summary {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.organizer-inspector__drawer summary::marker {
+  color: var(--ink-faint);
+}
+
+.organizer-inspector__drawer summary span,
+.organizer-inspector__form > .filter-step > span {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.organizer-inspector__drawer summary strong {
+  min-width: 0;
+  color: var(--ink);
+  overflow-wrap: break-word;
+  text-align: right;
+}
+
+.organizer-inspector__drawer .section-head {
+  margin-top: var(--space-panel);
+}
+
+.organizer-inspector__form,
+.organizer-inspector__split {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.organizer-inspector__form .button {
+  width: 100%;
+}
+
+.organizer-competition-scroll {
+  display: grid;
+  gap: 1rem;
+  margin-top: var(--space-panel);
+}
+
+.organizer-competition-card {
+  display: grid;
+  gap: 1rem;
+  max-height: 520px;
+  min-width: 0;
+  scroll-margin-top: 6rem;
+  padding: 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.62);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.organizer-competition-card.is-selected {
+  border-color: rgba(13, 56, 120, 0.38);
+  background: rgba(255, 253, 246, 0.96);
+  box-shadow: 0 14px 28px rgba(8, 20, 36, 0.1);
+}
+
+.organizer-competition-card__head,
+.organizer-competition-card__actions {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.organizer-competition-card__identity {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.organizer-competition-card__title-row {
+  display: flex;
+  min-width: 0;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.organizer-competition-card__select {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.organizer-competition-card__select strong {
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.organizer-competition-card__title-row strong {
+  min-width: 0;
+  color: var(--ink);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.external-link-icon {
+  display: inline-grid;
+  width: 1.55rem;
+  height: 1.55rem;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #075bb8;
+  line-height: 1;
+  text-decoration: none;
+  transition:
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.external-link-icon::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: currentcolor;
+  content: '';
+  mask: url('/assets/external-link.svg') center / contain no-repeat;
+}
+
+.external-link-icon:visited {
+  color: #6f2dbd;
+}
+
+.external-link-icon:hover,
+.external-link-icon:focus {
+  transform: translateY(-1px);
+  color: #0d3f86;
+  outline: none;
+}
+
+.external-link-icon:visited:hover,
+.external-link-icon:visited:focus {
+  color: #5b1fa1;
+}
+
+.organizer-competition-year-form {
+  max-width: 260px;
+  min-width: min(190px, 100%);
+}
+
+.organizer-competition-year-form .filter-step {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.organizer-event-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.organizer-event-button {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 252, 244, 0.68);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.organizer-event-button:hover,
+.organizer-event-button.is-selected {
+  transform: translateY(-1px);
+  border-color: rgba(13, 56, 120, 0.28);
+  background: rgba(13, 56, 120, 0.06);
+}
+
+.organizer-event-button span,
+.organizer-event-button small {
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+@keyframes inspector-enter {
+  from {
+    opacity: 0;
+    transform: translateX(0.75rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .bar-row {
   display: grid;
   gap: 0.45rem;

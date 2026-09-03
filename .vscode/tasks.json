@@ -34,7 +34,7 @@
     {
       "label": "frontend: check",
       "type": "shell",
-      "command": "npm",
+      "command": "bun",
       "args": ["run", "check"],
       "options": {
         "cwd": "${workspaceFolder}/frontend"

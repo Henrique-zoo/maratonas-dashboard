@@ -56,6 +56,8 @@ pub struct CompetitionSubStructure {
     pub gender_category: GenderCategory,
     /// Anos em que a competição possui eventos no recorte consultado.
     pub years: Vec<u32>,
+    /// Ano ao qual pertencem os eventos deste snapshot.
+    pub snapshot_year: u32,
     /// Tipos de localização presentes nos eventos da competição.
     pub location_types: Vec<LocationType>,
     /// Eventos associados à competição.
@@ -82,9 +84,11 @@ pub struct EventSubStructure {
     pub total_institutions: u32,
     /// Total de times participantes no evento.
     pub total_teams: u32,
-    /// Total de participantes no evento.
+    /// Total de competidores distintos por `member_id` na instância do evento,
+    /// considerando apenas integrantes com papel `Contestant`.
     pub total_participants: u32,
-    /// Total de participantes femininas no evento.
+    /// Subconjunto distinto de competidoras com gênero `Female` incluído em
+    /// `total_participants`.
     pub female_participants: u32,
     /// Tipos de localização associados ao evento.
     pub location_types: Vec<LocationType>,
@@ -159,12 +163,14 @@ impl From<TempCompetitionSubStructure> for CompetitionSubStructure {
     fn from(value: TempCompetitionSubStructure) -> Self {
         let mut location_types = value.location_types;
         location_types.sort();
+        let snapshot_year = value.years.iter().copied().max().unwrap_or_default();
         Self {
             id: value.id,
             name: value.name,
             website_url: value.website_url,
             gender_category: value.gender_category,
             years: value.years,
+            snapshot_year,
             location_types,
             events: value.events.into_values().collect(),
         }
@@ -329,6 +335,7 @@ mod tests {
         assert_eq!(organizer.id, 1);
         assert_eq!(organizer.competitions.len(), 1);
         assert_eq!(organizer.competitions[0].years, vec![2023, 2024]);
+        assert_eq!(organizer.competitions[0].snapshot_year, 2024);
         assert_eq!(
             organizer.competitions[0].location_types,
             vec![LocationType::Country, LocationType::City]

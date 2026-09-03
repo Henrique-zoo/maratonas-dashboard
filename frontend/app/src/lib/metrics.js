@@ -12,6 +12,24 @@ export function flattenCompetitionTeams(competition) {
   return competition.events.flatMap((event) => event.teams || []);
 }
 
+export function snapshotYear(structure) {
+  if (Number(structure?.snapshot_year)) {
+    return Number(structure.snapshot_year);
+  }
+
+  const eventYears = (structure?.events || [])
+    .map((event) => new Date(`${event.date}T00:00:00`).getFullYear())
+    .filter(Number.isInteger);
+
+  return latestYear(eventYears) || latestYear(structure?.years || []);
+}
+
+export function snapshotYears(competitions = []) {
+  return Array.from(new Set(competitions.map(snapshotYear).filter(Boolean))).sort(
+    (left, right) => left - right,
+  );
+}
+
 export function getCompetitionOverview(competition) {
   const teams = flattenCompetitionTeams(competition);
 
@@ -19,10 +37,11 @@ export function getCompetitionOverview(competition) {
     eventCount: competition.events.length,
     teamEntries: teams.length,
     uniqueTeams: uniqueCount(teams, (team) => team.id),
-    totalParticipants: sumBy(teams, (team) => team.total_members),
-    femaleParticipants: sumBy(teams, (team) => team.female_participants),
+    participantEntries: sumBy(teams, (team) => team.total_members),
+    femaleParticipantEntries: sumBy(teams, (team) => team.female_participants),
     yearSpan: formatYearSpan(competition.years),
-    latestYear: latestYear(competition.years),
+    latestYear: snapshotYear(competition),
+    snapshotYear: snapshotYear(competition),
   };
 }
 
@@ -32,8 +51,10 @@ export function getTeamOverview(team) {
   return {
     competitionCount: team.competitions.length,
     eventCount: events.length,
+    participantEntries: sumBy(team.competitions, (competition) => competition.total_members),
+    femaleParticipantEntries: sumBy(team.competitions, (competition) => competition.female_participants),
     totalMembers: sumBy(team.competitions, (competition) => competition.total_members),
-    femaleParticipants: sumBy(team.competitions, (competition) => competition.female_participants),
+    snapshotYears: snapshotYears(team.competitions),
   };
 }
 
@@ -56,8 +77,9 @@ export function getInstitutionOverview(institution) {
     competitionCount: institution.competitions.length,
     eventCount: events.length,
     teamEntries: teams.length,
-    totalParticipants: sumBy(teams, (team) => team.total_members),
-    femaleParticipants: sumBy(teams, (team) => team.female_participants),
+    participantEntries: sumBy(teams, (team) => team.total_members),
+    femaleParticipantEntries: sumBy(teams, (team) => team.female_participants),
+    snapshotYears: snapshotYears(institution.competitions),
   };
 }
 
@@ -79,9 +101,11 @@ export function getOrganizerOverview(organizer) {
   return {
     competitionCount: organizer.competitions.length,
     eventCount: events.length,
+    teamEntries: sumBy(events, (event) => event.total_teams),
     totalTeams: sumBy(events, (event) => event.total_teams),
-    totalParticipants: sumBy(events, (event) => event.total_participants),
-    femaleParticipants: sumBy(events, (event) => event.female_participants),
+    participantEntries: sumBy(events, (event) => event.total_participants),
+    femaleParticipantEntries: sumBy(events, (event) => event.female_participants),
+    snapshotYears: snapshotYears(organizer.competitions),
     locationTypes: Array.from(
       new Set(
         organizer.competitions.flatMap((competition) =>

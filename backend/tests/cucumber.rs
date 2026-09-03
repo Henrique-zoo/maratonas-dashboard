@@ -31,6 +31,8 @@ const POSTGRES_PORT: u16 = 5432;
 pub(crate) struct ApiWorld {
     database: Option<TestDatabase>,
     app: Option<Router>,
+    pub(crate) concurrent_database_mutations: Vec<TestDatabaseMutation>,
+    pub(crate) last_database_mutation: Option<TestDatabaseMutation>,
     pub(crate) last_response: Option<TestResponse>,
     pub(crate) request_count: usize,
     pub(crate) home: HomeFilterContext,
@@ -46,6 +48,38 @@ struct TestDatabase {
 pub(crate) struct TestResponse {
     pub(crate) status: StatusCode,
     pub(crate) body: String,
+}
+
+#[derive(Debug)]
+pub(crate) struct TestDatabaseMutation {
+    pub(crate) succeeded: bool,
+    pub(crate) code: Option<String>,
+    pub(crate) constraint: Option<String>,
+}
+
+impl TestDatabaseMutation {
+    pub(crate) fn from_result<T>(result: Result<T, sqlx::Error>) -> Self {
+        match result {
+            Ok(_) => Self {
+                succeeded: true,
+                code: None,
+                constraint: None,
+            },
+            Err(error) => {
+                let database_error = error.as_database_error();
+
+                Self {
+                    succeeded: false,
+                    code: database_error
+                        .and_then(|error| error.code())
+                        .map(|code| code.into_owned()),
+                    constraint: database_error
+                        .and_then(|error| error.constraint())
+                        .map(str::to_owned),
+                }
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -142,6 +176,11 @@ impl fmt::Debug for ApiWorld {
         f.debug_struct("ApiWorld")
             .field("database_url", &self.database.as_ref().map(|db| &db.url))
             .field("app_ready", &self.app.is_some())
+            .field(
+                "concurrent_database_mutations",
+                &self.concurrent_database_mutations,
+            )
+            .field("last_database_mutation", &self.last_database_mutation)
             .field("last_response", &self.last_response)
             .field("request_count", &self.request_count)
             .field("home", &self.home)
@@ -152,6 +191,14 @@ impl fmt::Debug for ApiWorld {
 impl ApiWorld {
     pub(crate) fn api_is_running(&self) -> bool {
         self.database.is_some() && self.app.is_some()
+    }
+
+    pub(crate) fn database_pool(&self) -> &PgPool {
+        &self
+            .database
+            .as_ref()
+            .expect("BDD database should be initialized")
+            .pool
     }
 
     async fn start_database(&mut self) {
@@ -187,6 +234,11 @@ impl ApiWorld {
             .run(&pool)
             .await
             .expect("Cucumber database migrations should run");
+
+        sqlx::raw_sql(include_str!("fixtures/api_bdd.sql"))
+            .execute(&pool)
+            .await
+            .expect("the deterministic Cucumber fixture should load");
 
         self.app = Some(routes::create_router().with_state(AppState::new(pool.clone())));
         self.database = Some(TestDatabase {
@@ -235,6 +287,25 @@ impl ApiWorld {
             status,
             body: String::from_utf8(body.to_vec()).expect("response body should be UTF-8"),
         });
+    }
+
+    pub(crate) async fn fixture_is_loaded(&self) -> bool {
+        let pool = &self
+            .database
+            .as_ref()
+            .expect("BDD database should be initialized")
+            .pool;
+
+        sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS (
+                SELECT 1
+                FROM organizer
+                WHERE id = 1 AND name = 'Algorithm League'
+            )",
+        )
+        .fetch_one(pool)
+        .await
+        .expect("fixture probe should run")
     }
 
     pub(crate) async fn get_json<T>(&mut self, path: &str) -> T
@@ -430,6 +501,8 @@ impl HomeFilterContext {
         let selected_competition = self.selected_competition.as_ref().map(|option| option.id);
         let selected_institution = self.selected_institution.as_ref().map(|option| option.id);
         let selected_team = self.selected_team.as_ref().map(|option| option.id);
+        let hierarchy_only_locates_entity =
+            selected_institution.is_some() || selected_team.is_some();
         let competition_ids_for_organizer =
             selected_organizer.map(|_| id_set(&self.competition_options_for_selected_organizer()));
         let competition_ids_for_institution = selected_institution.map(|_| {
@@ -462,14 +535,17 @@ impl HomeFilterContext {
         let mut team_ids = BTreeSet::new();
 
         for competition in &self.competition_structures {
-            if competition_ids_for_organizer
-                .as_ref()
-                .is_some_and(|ids| !ids.contains(&competition.id))
+            if !hierarchy_only_locates_entity
+                && competition_ids_for_organizer
+                    .as_ref()
+                    .is_some_and(|ids| !ids.contains(&competition.id))
             {
                 continue;
             }
 
-            if selected_competition.is_some_and(|id| competition.id != id) {
+            if !hierarchy_only_locates_entity
+                && selected_competition.is_some_and(|id| competition.id != id)
+            {
                 continue;
             }
 
@@ -645,6 +721,7 @@ fn team_matches_institution(team: &CompetitionTeam, institution: &InstitutionStr
 #[tokio::main]
 async fn main() {
     ApiWorld::cucumber()
+        .max_concurrent_scenarios(4)
         .before(|_, _, _, world| {
             async move {
                 world.start_database().await;

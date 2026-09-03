@@ -11,6 +11,10 @@ import {
 
 let searchCatalogPromise;
 let universePromise;
+let searchCatalogExpiresAt = 0;
+let universeExpiresAt = 0;
+
+const SNAPSHOT_TTL_MS = 60_000;
 
 function buildEventIndex(competitions) {
   const deduped = new Map();
@@ -80,15 +84,21 @@ function buildSearchIndex({
       id: item.id,
       name: item.name,
       subtitle: `${item.competitionName} · ${item.location}`,
-      href: `/events/${item.id}?year=${item.year}&name=${encodeURIComponent(item.name)}&date=${item.date}&location=${encodeURIComponent(item.location)}&locationTypes=${item.locationTypes.join(',')}&competitionId=${item.competitionId}&competitionName=${encodeURIComponent(item.competitionName)}`,
+      href: `/events/${item.id}?year=${item.year}`,
       searchText: `${item.name} ${item.competitionName} ${item.location}`.toLowerCase(),
     })),
   ];
 }
 
-export async function getSearchCatalog() {
+export async function getSearchCatalog({ force = false } = {}) {
+  if (force || Date.now() >= searchCatalogExpiresAt) {
+    searchCatalogPromise = undefined;
+  }
+
   if (!searchCatalogPromise) {
-    searchCatalogPromise = (async () => {
+    searchCatalogExpiresAt = Date.now() + SNAPSHOT_TTL_MS;
+    let guardedCatalogPromise;
+    const pendingCatalogPromise = (async () => {
       const [organizerOptions, competitionOptions, institutionOptions, teamOptions] = await Promise.all([
         getOrganizerOptions(),
         getCompetitionOptions(),
@@ -118,15 +128,31 @@ export async function getSearchCatalog() {
         }),
       };
     })();
+
+    guardedCatalogPromise = pendingCatalogPromise.catch((error) => {
+      if (searchCatalogPromise === guardedCatalogPromise) {
+        searchCatalogPromise = undefined;
+        searchCatalogExpiresAt = 0;
+      }
+
+      throw error;
+    });
+    searchCatalogPromise = guardedCatalogPromise;
   }
 
   return searchCatalogPromise;
 }
 
-export async function getUniverseSnapshot() {
+export async function getUniverseSnapshot({ force = false } = {}) {
+  if (force || Date.now() >= universeExpiresAt) {
+    universePromise = undefined;
+  }
+
   if (!universePromise) {
-    universePromise = (async () => {
-      const catalog = await getSearchCatalog();
+    universeExpiresAt = Date.now() + SNAPSHOT_TTL_MS;
+    let guardedUniversePromise;
+    const pendingUniversePromise = (async () => {
+      const catalog = await getSearchCatalog({ force });
 
       const [organizers, institutions, teams] = await Promise.all([
         catalog.organizerOptions.length
@@ -151,14 +177,26 @@ export async function getUniverseSnapshot() {
         teams,
       };
     })();
+
+    guardedUniversePromise = pendingUniversePromise.catch((error) => {
+      if (universePromise === guardedUniversePromise) {
+        universePromise = undefined;
+        universeExpiresAt = 0;
+      }
+
+      throw error;
+    });
+    universePromise = guardedUniversePromise;
   }
 
   return universePromise;
 }
 
-export async function getEventMetadata(eventId) {
-  const universe = await getUniverseSnapshot();
-  return universe.events.find((item) => item.id === Number(eventId)) || null;
+export function clearDataStoreCache() {
+  searchCatalogPromise = undefined;
+  universePromise = undefined;
+  searchCatalogExpiresAt = 0;
+  universeExpiresAt = 0;
 }
 
 export function getOptionLabel(options, id) {

@@ -1,0 +1,12 @@
+[test]
+coverageSkipTestFiles = true
+coverageReporter = ["text", "lcov"]
+coverageDir = "coverage"
+# Prevent regressions in every production module loaded by the unit suite.
+coverageThreshold = { lines = 0.75, functions = 0.75 }
+coveragePathIgnorePatterns = [
+  "tests/**",
+  "dist/**",
+  "node_modules/**",
+  "*.config.js",
+]

@@ -2,10 +2,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug md_backend (CodeLLDB)",
+      "name": "Debug backend (CodeLLDB)",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/backend/target/debug/md_backend",
+      "program": "${workspaceFolder}/backend/target/debug/backend",
       "args": [],
       "cwd": "${workspaceFolder}/backend",
       "preLaunchTask": "backend: debug prepare",

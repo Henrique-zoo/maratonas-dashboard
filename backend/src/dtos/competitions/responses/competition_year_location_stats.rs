@@ -30,9 +30,11 @@ pub struct CompetitionYearLocationStats {
     pub total_institutions: u32,
     /// Total de times associados à competição nessa localização.
     pub total_teams: u32,
-    /// Total de participantes associados à competição nessa localização.
+    /// Total de competidores distintos por `member_id` nessa localização,
+    /// considerando apenas integrantes com papel `Contestant`.
     pub total_participants: u32,
-    /// Total de participantes femininas associadas à competição nessa localização.
+    /// Subconjunto distinto de competidoras com gênero `Female` incluído em
+    /// `total_participants` nessa localização.
     pub female_participants: u32,
 }
 

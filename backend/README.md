@@ -117,6 +117,8 @@ HTTP wiring -> Controller -> Service Layer -> Model/Persistence -> View(JSON)
 - Serde para serialização e desserialização
 - Chrono para datas
 - Mockall para mocks em testes unitários
+- Cucumber para cenários BDD executáveis
+- Testcontainers para PostgreSQL efêmero nos testes de integração
 - Docker para build e execução do serviço
 
 ## Como Rodar
@@ -167,14 +169,85 @@ Isso significa que o schema do banco é aplicado automaticamente no boot.
 ```bash
 cargo check
 cargo test
+cargo test --test cucumber
 cargo run
 ```
+
+O teste `cucumber` exige que o Docker esteja disponível. Cada cenário cria um
+PostgreSQL 16 isolado, executa as migrations e substitui os dados de
+demonstração pela fixture determinística de `tests/fixtures/api_bdd.sql`. As
+requisições percorrem o `Router` Axum real em memória, sem abrir uma porta TCP.
 
 Se quiser validar o backend sem escrever artefatos em `target/` do projeto, é possível apontar o target para outro diretório:
 
 ```bash
 CARGO_TARGET_DIR=/tmp/backend-target cargo test
 ```
+
+### Cobertura de testes
+
+O projeto usa `cargo-llvm-cov` 0.9.0, apoiado na instrumentação de cobertura do
+LLVM. As ferramentas de análise são dependências de desenvolvimento instaladas
+no ambiente local; elas não integram o binário nem alteram as dependências de
+execução da aplicação.
+
+A instalação reproduzível das versões adotadas é feita por:
+
+```bash
+make install-analysis-tools
+```
+
+A cobertura é separada por escopo para que o percentual não seja interpretado
+sem saber quais testes o produziram:
+
+```bash
+make coverage-unit  # somente os testes unitários da biblioteca (--lib)
+make coverage-bdd   # somente o alvo de integração Cucumber
+make coverage-all   # suíte completa: unitários e BDD
+```
+
+`coverage-bdd` e `coverage-all` exigem Docker pelas mesmas razões que
+`cargo test --test cucumber`. Cada comando imprime percentuais de cobertura de
+funções, linhas e regiões e grava três formatos em `target/coverage/<escopo>/`:
+
+- `summary.json`, resumo legível por ferramentas
+- `lcov.info`, adequado à integração com serviços e extensões de IDE
+- `html/index.html`, relatório navegável por arquivo e linha
+
+Os artefatos ficam sob `target/` e, portanto, não são versionados.
+
+### Qualidade e complexidade do código
+
+A verificação estática combina ferramentas com propósitos diferentes:
+
+```bash
+make quality
+```
+
+Esse comando verifica a formatação com `rustfmt`, executa o conjunto padrão de
+lints do `Clippy` sobre todos os alvos e recursos e usa
+`rust-code-analysis-cli` 0.0.25 para produzir métricas por arquivo e unidade de
+código. Os relatórios JSON são gravados em
+`target/quality/rust-code-analysis/` e incluem, entre outras medidas:
+
+- complexidade ciclomática
+- complexidade cognitiva
+- métricas de Halstead
+- índice de manutenibilidade
+- linhas físicas, lógicas, de comentário e em branco
+
+Para utilizar os avisos do compilador e do Clippy como _quality gate_, há uma
+variante estrita:
+
+```bash
+make quality-strict
+```
+
+Ela acrescenta `-D warnings` e retorna código diferente de zero diante de
+qualquer aviso. As métricas de complexidade não são tratadas, por si sós, como
+prova de qualidade nem receberam limiares arbitrários: servem para localizar
+pontos fora da curva e acompanhar tendências, que então devem ser examinados
+no contexto arquitetural do código.
 
 ## Estrutura de Pastas
 
@@ -191,7 +264,13 @@ src/
   main.rs
   state.rs
 migrations/
+tests/
+  features/
+  fixtures/
+  step_definitions/
+  cucumber.rs
 Dockerfile
+Makefile
 README.md
 ```
 
@@ -205,6 +284,9 @@ README.md
 - `dtos/`: contratos de entrada e saída da API
 - `shared/`: enums, tipos compartilhados e utilitários de serialização
 - `migrations/`: schema, tipos SQL, funções auxiliares e seed de dados
+- `tests/features/`: especificações Gherkin organizadas por comportamento da API
+- `tests/fixtures/`: dados mínimos e determinísticos usados exclusivamente pela suíte BDD
+- `tests/step_definitions/`: implementação dos passos compartilhados e específicos dos filtros
 
 ## Arquitetura em Camadas
 
@@ -387,6 +469,7 @@ Exemplos:
 - `CompetitionStructure`
 - `EventPerformance`
 - `OptionItem`
+- `TeamOption`, que acrescenta a instituição necessária para desambiguar nomes de equipes
 
 Regra prática:
 
@@ -425,6 +508,7 @@ em vez de exigir arrays JSON ou múltiplos parâmetros repetidos.
 Hoje a aplicação trabalha basicamente com:
 
 - `BadRequest`
+- `NotFound`
 - `Database`
 
 Isso mantém a assinatura dos services simples:
@@ -568,12 +652,27 @@ Algumas entidades centrais:
 - `event`: tipo de evento dentro de uma competição
 - `event_instance`: ocorrência concreta de um evento em uma data/local
 - `institution`: universidade/escola
-- `team`: time ligado a uma instituição
+- `team`: identidade do time, ligada a uma instituição
+- `team_contestant`: conjunto canônico de competidores que integra a identidade do time
 - `team_event`: participação de um time em um `event_instance`
 - `member`: pessoa
-- `team_event_member`: membros ligados a uma participação do time
+- `team_event_member`: projeção dos competidores e demais papéis em uma participação
 - `submission`: submissões em problemas
 - `location`: árvore hierárquica de localizações
+
+Uma equipe é identificada pela combinação entre nome, instituição e conjunto de
+`Contestant`s. Por isso, duas equipes da mesma instituição podem ter o mesmo
+nome quando seus elencos forem diferentes, mas não podem repetir também o mesmo
+conjunto de competidores. O conjunto é registrado em `team_contestant` e é
+reproduzido automaticamente em `team_event_member` quando um `team_event` é
+criado. A partir da primeira participação, nome, instituição e elenco tornam-se
+imutáveis, preservando a identidade usada pelo histórico.
+
+Um `Contestant` pode integrar equipes diferentes em competições distintas ou em
+edições anuais diferentes, mas representa apenas uma equipe dentro do mesmo par
+competição-ano. Ele também não pode participar de duas instâncias do mesmo
+evento em um único ano. Essas regras são impostas pelo próprio PostgreSQL e não
+se estendem aos papéis `Coach` e `Reserve`.
 
 ### Detalhe importante: `event` vs `event_instance`
 
@@ -619,11 +718,8 @@ Como este backend é muito orientado a consulta analítica e agregação, um mod
 
 ## Estratégia de Testes
 
-Os testes hoje estão concentrados principalmente na camada de service.
-
-Isso conversa diretamente com a arquitetura `MVC + Service Layer`: a camada mais valiosa para testar isoladamente é justamente a que contém os casos de uso e a transformação dos dados.
-
-Em vez de testar transformação com banco real, os tests:
+Os testes combinam dois níveis complementares. Na camada de service, os testes
+unitários:
 
 1. mockam o trait de repositório
 2. devolvem rows sintéticas
@@ -635,6 +731,21 @@ Exemplo de benefícios:
 - sem dependência de banco
 - foco total na regra de aplicação
 - falhas mais fáceis de localizar
+
+Na borda pública, a suíte BDD exercita `Route -> Handler -> Service ->
+Repository -> PostgreSQL` por meio do router real. Os cenários cobrem os 18
+endpoints, filtros de opções, snapshots temporais, estruturas anuais,
+estatísticas, agregações geográficas, histórico institucional, validações e
+resultados vazios. Uma regressão explícita garante que a cascata de filtros
+serve somente para localizar equipes e instituições: suas estruturas retornam
+o portfólio completo de competições.
+
+A fixture BDD não reutiliza os volumes nem os nomes da seed demonstrativa. Ela
+inclui entidades sem participação, uma equipe e uma instituição presentes em
+múltiplas competições, eventos recorrentes em vários anos, hierarquia
+geográfica, diferentes papéis de membros e contagens controladas. Isso mantém
+as expectativas legíveis e impede que alterações cosméticas nos dados de
+demonstração quebrem os cenários.
 
 ### Como os mocks funcionam
 
@@ -701,6 +812,7 @@ Fluxo recomendado para adicionar um novo endpoint/caso de uso:
 6. criar o row type em `repositories/types/...` se necessário
 7. implementar a query SQL no módulo correto de repository
 8. escrever testes unitários do service com `mockall`
+9. acrescentar ou atualizar o cenário Gherkin que descreve o contrato observável
 
 ### Regra prática
 
@@ -734,7 +846,7 @@ Se você não sabe onde colocar algo, faça a seguinte pergunta:
 
 Algumas melhorias naturais para o futuro:
 
-- adicionar testes de integração para handler + banco
+- manter a matriz BDD sincronizada quando o contrato HTTP mudar
 - revisar padronização de mensagens de erro
 - adicionar observabilidade estruturada (logs, tracing, métricas)
 - revisar endpoints e documentação pública da API separadamente deste README

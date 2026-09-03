@@ -7,6 +7,7 @@
 //! Declara trait assíncrona com operações de leitura necessárias aos services, permitindo mock em testes e desacoplamento da implementação SQL.
 //!
 //! ## Funções
+//! - `find_event_options`: Recupera os eventos disponíveis para a análise histórica de uma instituição.
 //! - `find_options_by_competitions`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
 //! - `find_structures_by_ids`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
 //! - `find_event_performance_over_time`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
@@ -23,7 +24,9 @@ use crate::{
         institution::{options, performance, structures},
         types::{
             IdNameRow,
-            institutions::{EventPerformanceRow, InstitutionStructureRow},
+            institutions::{
+                EventPerformanceRow, InstitutionEventOptionRow, InstitutionStructureRow,
+            },
         },
     },
 };
@@ -36,6 +39,12 @@ use crate::{
 /// `institution::options`, `institution::structures` e
 /// `institution::performance`.
 pub trait InstitutionRepository: Send + Sync {
+    /// Lista eventos históricos disponíveis para a instituição.
+    async fn find_event_options(
+        &self,
+        institution_id: i32,
+    ) -> AppResult<Vec<InstitutionEventOptionRow>>;
+
     /// Lista instituições para composição de filtros na API.
     ///
     /// Quando `competition_ids` é `Some`, retorna apenas instituições que
@@ -58,7 +67,7 @@ pub trait InstitutionRepository: Send + Sync {
     /// Retorna estrutura detalhada das instituições informadas.
     ///
     /// A consulta considera, para cada competição relacionada, apenas o último
-    /// ano disponível daquela competição e devolve linhas denormalizadas para
+    /// ano em que a instituição participou e devolve linhas denormalizadas para
     /// montagem da árvore `instituicao -> competicoes -> eventos -> times`.
     ///
     /// # Parâmetros
@@ -104,6 +113,13 @@ pub trait InstitutionRepository: Send + Sync {
 
 #[async_trait]
 impl InstitutionRepository for Registry {
+    async fn find_event_options(
+        &self,
+        institution_id: i32,
+    ) -> AppResult<Vec<InstitutionEventOptionRow>> {
+        options::find_event_options(self, institution_id).await
+    }
+
     /// Implementa [`InstitutionRepository::find_options_by_competitions`].
     ///
     /// Delega a execução SQL para [`options::find_options_by_competitions`],

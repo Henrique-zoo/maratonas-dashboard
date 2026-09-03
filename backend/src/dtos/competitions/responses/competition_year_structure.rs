@@ -93,6 +93,7 @@ mod tests {
                 10,
                 "Bit Masters".to_string(),
                 1,
+                50,
                 "USP".to_string(),
                 None,
                 "Sao Paulo".to_string(),

@@ -1,7 +1,6 @@
-import { getEventLocationStats, getEventStats } from '../lib/api.js';
-import { getEventMetadata } from '../lib/data-store.js';
+import { getEventLocationStats, getEventStats, getEventStructure } from '../lib/api.js';
+import { initCustomDropdowns, renderDropdown } from '../lib/custom-select.js';
 import {
-  chooseLocationType,
   escapeHtml,
   formatDate,
   formatNumber,
@@ -13,78 +12,100 @@ import {
   serialiseQuery,
 } from '../lib/ui.js';
 
-function parseLocationTypes(queryValue, fallback = []) {
-  if (!queryValue) {
-    return fallback;
+let dropdownAbortController = null;
+
+function preferredLocationType(locationTypes = [], requested = null) {
+  if (requested && locationTypes.includes(requested)) {
+    return requested;
   }
 
-  return queryValue.split(',').filter(Boolean);
+  return locationTypes.includes('Country') ? 'Country' : locationTypes[0] || null;
+}
+
+function occurrenceSummary(instances = []) {
+  if (!instances.length) {
+    return 'No registered occurrence';
+  }
+
+  if (instances.length === 1) {
+    return `${formatDate(instances[0].date)} · ${instances[0].location}`;
+  }
+
+  return `${instances.length} registered occurrences`;
 }
 
 export async function render({ params, query, navigate }) {
   const eventId = Number(params.id);
-  const metadata = (await getEventMetadata(eventId)) || null;
-  const year = query.year
-    ? Number(query.year)
-    : metadata?.year || new Date(metadata?.date || Date.now()).getFullYear();
-  const rawLocationTypes = parseLocationTypes(query.locationTypes, metadata?.locationTypes || []);
-  const fallbackLocationType = query.locationType || chooseLocationType(rawLocationTypes);
-  const locationChoices = rawLocationTypes.length ? rawLocationTypes : [fallbackLocationType];
-  const selectedLocationType = query.locationType || fallbackLocationType;
+  const requestedYear = query.year ? Number(query.year) : null;
+  const structure = await getEventStructure(eventId, requestedYear);
+  const year = structure.year;
+  const locationTypes = structure.location_types || [];
+  const selectedLocationType = preferredLocationType(locationTypes, query.locationType);
 
   const [stats, locationStats] = await Promise.all([
     getEventStats(eventId, year),
-    getEventLocationStats(eventId, selectedLocationType, year),
+    selectedLocationType ? getEventLocationStats(eventId, selectedLocationType, year) : Promise.resolve([]),
   ]);
-
-  const name = query.name || metadata?.name || `Event #${eventId}`;
-  const date = query.date || metadata?.date || null;
-  const location = query.location || metadata?.location || 'Location unavailable';
-  const competitionId = query.competitionId || metadata?.competitionId || null;
-  const competitionName = query.competitionName || metadata?.competitionName || null;
 
   const html = `
     ${renderPageIntro({
-      eyebrow: 'Event dossier',
-      title: name,
-      blurb:
-        'Use the event board to understand roster size, institutional spread and location concentration for a single fixture.',
-      meta: [
-        date ? renderChip(formatDate(date), 'amber') : '',
-        renderChip(location, 'navy'),
-        ...locationChoices.map((locationType) => renderChip(locationType, 'slate')),
-      ].filter(Boolean),
-      actions: competitionId
-        ? `<a class="button button--ghost" href="/competitions/${competitionId}${serialiseQuery({ year })}" data-link>${escapeHtml(competitionName || 'Open competition')}</a>`
-        : '',
+      eyebrow: 'Event',
+      title: structure.name,
+      blurb: 'Review the annual occurrences and participation aggregates for this event.',
+      meta: [renderChip(`Year ${year}`, 'amber'), renderChip(occurrenceSummary(structure.instances), 'navy')],
+      actions: `<a class="button button--ghost" href="/competitions/${structure.competition.id}${serialiseQuery({ year })}" data-link>${escapeHtml(structure.competition.name)}</a>`,
     })}
 
     <section class="panel panel--filters">
       <form class="filter-bar" id="event-detail-filters">
-        <label>
-          <span>Year</span>
-          <input name="year" type="number" value="${year}" min="2000" max="2100" />
-        </label>
-        <label>
-          <span>Location tier</span>
-          <select name="locationType">
-            ${locationChoices
-              .map(
-                (locationType) =>
-                  `<option value="${locationType}" ${locationType === selectedLocationType ? 'selected' : ''}>${locationType}</option>`,
-              )
-              .join('')}
-          </select>
-        </label>
-        <button class="button" type="submit">Refresh event</button>
+        ${renderDropdown({
+          name: 'year',
+          label: 'Year',
+          options: [...structure.years]
+            .sort((left, right) => right - left)
+            .map((availableYear) => ({
+              id: String(availableYear),
+              name: String(availableYear),
+            })),
+          selectedValue: year,
+          placeholder: 'Select year',
+        })}
+        ${renderDropdown({
+          name: 'locationType',
+          label: 'Location level',
+          options: locationTypes.map((locationType) => ({
+            id: locationType,
+            name: locationType,
+          })),
+          selectedValue: selectedLocationType,
+          placeholder: 'No location breakdown',
+          disabled: !locationTypes.length,
+        })}
+        <button class="button" type="submit">Apply</button>
       </form>
     </section>
 
     ${renderStatGrid([
-      { label: 'Institutions', value: formatNumber(stats.total_institutions), hint: `Year ${year}` },
-      { label: 'Teams', value: formatNumber(stats.total_teams), hint: 'Qualified entries' },
-      { label: 'Participants', value: formatNumber(stats.total_participants), hint: 'Roster count' },
-      { label: 'Women tracked', value: formatNumber(stats.female_participants), hint: 'Absolute count' },
+      {
+        label: 'Institutions',
+        value: formatNumber(stats.total_institutions),
+        hint: 'Distinct in this year',
+      },
+      {
+        label: 'Teams',
+        value: formatNumber(stats.total_teams),
+        hint: 'Distinct in this year',
+      },
+      {
+        label: 'Participants',
+        value: formatNumber(stats.total_participants),
+        hint: `Distinct people · year ${year}`,
+      },
+      {
+        label: 'Female participants',
+        value: formatNumber(stats.female_participants),
+        hint: 'Distinct people',
+      },
     ])}
 
     <section class="content-grid">
@@ -92,43 +113,74 @@ export async function render({ params, query, navigate }) {
         <div class="section-head">
           <div>
             <span class="eyebrow">Location spread</span>
-            <h2>${escapeHtml(selectedLocationType)} distribution</h2>
+            <h2>${escapeHtml(selectedLocationType || 'No')} distribution</h2>
           </div>
         </div>
-        ${renderBarList(
-          locationStats.map((item) => ({
-            label: item.name,
-            value: item.total_teams,
-          })),
-          { valueFormatter: formatNumber },
-        )}
+        ${
+          selectedLocationType
+            ? renderBarList(
+                locationStats.map((item) => ({
+                  label: item.name,
+                  value: item.total_teams,
+                  subtitle: `${formatNumber(item.total_participants)} participants`,
+                })),
+                { valueFormatter: formatNumber },
+              )
+            : '<p class="card-note">No participant location level is available for this event.</p>'
+        }
       </article>
 
       <article class="panel">
         <div class="section-head">
           <div>
-            <span class="eyebrow">Fixture snapshot</span>
-            <h2>Quick read</h2>
+            <span class="eyebrow">Annual occurrences</span>
+            <h2>${escapeHtml(structure.name)} · ${year}</h2>
           </div>
         </div>
         ${renderMetricStrip([
-          { label: 'Participants', value: formatNumber(stats.total_participants) },
-          { label: 'Women', value: formatNumber(stats.female_participants) },
-          { label: 'Location rows', value: formatNumber(locationStats.length) },
+          {
+            label: 'Occurrences',
+            value: formatNumber(structure.instances.length),
+          },
+          {
+            label: 'Participants',
+            value: formatNumber(stats.total_participants),
+          },
+          {
+            label: 'Female participants',
+            value: formatNumber(stats.female_participants),
+          },
         ])}
-        <p class="card-note">
-          ${escapeHtml(name)} was staged ${date ? `on ${formatDate(date)}` : 'on an unknown date'} in ${escapeHtml(location)}.
-          ${competitionName ? ` It belongs to ${escapeHtml(competitionName)}.` : ''}
-        </p>
+        <div class="timeline-list">
+          ${structure.instances
+            .map(
+              (instance) => `
+                <div class="timeline-item">
+                  <span>${escapeHtml(formatDate(instance.date))}</span>
+                  <strong>${escapeHtml(instance.location)}</strong>
+                  <small>Event occurrence #${instance.id}</small>
+                </div>
+              `,
+            )
+            .join('')}
+        </div>
       </article>
     </section>
   `;
 
   return {
-    title: name,
+    title: structure.name,
     html,
     afterRender() {
       const form = document.getElementById('event-detail-filters');
+
+      if (dropdownAbortController) {
+        dropdownAbortController.abort();
+      }
+
+      dropdownAbortController = new AbortController();
+      initCustomDropdowns(document, dropdownAbortController.signal);
+
       form.addEventListener('submit', (event) => {
         event.preventDefault();
         const data = new FormData(form);
@@ -136,19 +188,13 @@ export async function render({ params, query, navigate }) {
           `/events/${eventId}${serialiseQuery({
             year: data.get('year'),
             locationType: data.get('locationType'),
-            name,
-            date,
-            location,
-            locationTypes: locationChoices.join(','),
-            competitionId,
-            competitionName,
           })}`,
         );
       });
 
-      form
-        .querySelector('select[name="locationType"]')
-        .addEventListener('change', () => form.requestSubmit());
+      form.querySelectorAll('select').forEach((select) => {
+        select.addEventListener('change', () => form.requestSubmit());
+      });
     },
   };
 }

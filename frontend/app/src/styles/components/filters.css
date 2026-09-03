@@ -37,7 +37,7 @@
   min-width: 0;
 }
 
-.filter-step:not(:nth-of-type(4))::after {
+.filter-bar--cascade .filter-step:not(:nth-of-type(4))::after {
   content: '';
   position: absolute;
   top: calc(50% + 0.45rem);
@@ -95,7 +95,7 @@ select {
 }
 
 .app-select.is-open {
-  z-index: 500;
+  z-index: 10000;
 }
 
 .app-select__native {
@@ -106,6 +106,7 @@ select {
   display: flex;
   width: 100%;
   min-height: 49px;
+  scroll-margin-top: 6rem;
   align-items: center;
   justify-content: space-between;
   gap: 0.85rem;
@@ -162,15 +163,15 @@ select {
 }
 
 .app-select__menu {
-  position: absolute;
-  z-index: 1000;
-  top: 100%;
-  right: 0;
+  position: fixed;
+  z-index: 10000;
+  top: 0;
+  right: auto;
   left: 0;
   display: grid;
   max-height: 280px;
   gap: 0.25rem;
-  margin-top: 0.45rem;
+  margin-top: 0;
   padding: 0.4rem;
   overflow-y: auto;
   border: 1px solid var(--line);

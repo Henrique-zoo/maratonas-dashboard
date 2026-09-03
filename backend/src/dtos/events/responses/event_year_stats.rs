@@ -26,9 +26,11 @@ pub struct EventYearStats {
     pub total_institutions: u32,
     /// Total de times participantes no ano.
     pub total_teams: u32,
-    /// Total de participantes no ano.
+    /// Total de competidores distintos por `member_id` no ano, considerando
+    /// apenas integrantes com papel `Contestant`.
     pub total_participants: u32,
-    /// Total de participantes femininas no ano.
+    /// Subconjunto distinto de competidoras com gênero `Female` incluído em
+    /// `total_participants`.
     pub female_participants: u32,
 }
 

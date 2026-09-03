@@ -7,6 +7,7 @@
 //! Expõe handlers HTTP pequenos e orientados a caso de uso.
 //!
 //! ## Funções
+//! - `get_event_options`: Handler HTTP que lista os eventos e anos disponíveis para a análise histórica da instituição.
 //! - `get_event_performance_over_time`: Handler HTTP que extrai dados da requisição, delega ao service e retorna payload serializável.
 //! - `get_options`: Handler HTTP que extrai dados da requisição, delega ao service e retorna payload serializável.
 //! - `get_structures`: Handler HTTP que extrai dados da requisição, delega ao service e retorna payload serializável.
@@ -15,19 +16,27 @@
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    response::IntoResponse,
-};
+use axum::{Json, extract::State, response::IntoResponse};
 
 use crate::{
     AppState,
+    dtos::common::requests::IdPath,
     dtos::institutions::requests::{
         EventPerformancePath, EventPerformanceQuery, OptionsQuery, StructuresQuery,
     },
+    extractors::{ApiPath, ApiQuery},
     services,
 };
+
+/// Retorna os eventos históricos que podem alimentar a análise da instituição.
+pub async fn get_event_options(
+    State(state): State<AppState>,
+    ApiPath(path): ApiPath<IdPath>,
+) -> impl IntoResponse {
+    services::institutions::get_event_options(&state.repo, path.id)
+        .await
+        .map(Json)
+}
 
 /// Retorna a série histórica de desempenho de uma instituição em um evento.
 ///
@@ -44,8 +53,8 @@ use crate::{
 /// `IntoResponse`.
 pub async fn get_event_performance_over_time(
     State(state): State<AppState>,
-    Path(path): Path<EventPerformancePath>,
-    Query(query): Query<EventPerformanceQuery>,
+    ApiPath(path): ApiPath<EventPerformancePath>,
+    ApiQuery(query): ApiQuery<EventPerformanceQuery>,
 ) -> impl IntoResponse {
     services::institutions::get_event_performance_over_time(
         &state.repo,
@@ -71,7 +80,7 @@ pub async fn get_event_performance_over_time(
 /// Resposta JSON com a lista de opções ou erro convertido por `IntoResponse`.
 pub async fn get_options(
     State(state): State<AppState>,
-    Query(filter): Query<OptionsQuery>,
+    ApiQuery(filter): ApiQuery<OptionsQuery>,
 ) -> impl IntoResponse {
     services::institutions::get_options(&state.repo, filter.competition_ids.into_inner())
         .await
@@ -92,7 +101,7 @@ pub async fn get_options(
 /// `IntoResponse`.
 pub async fn get_structures(
     State(state): State<AppState>,
-    Query(filter): Query<StructuresQuery>,
+    ApiQuery(filter): ApiQuery<StructuresQuery>,
 ) -> impl IntoResponse {
     services::institutions::get_structures(&state.repo, filter.institution_ids.into_inner())
         .await

@@ -21,7 +21,7 @@ use crate::{AppState, handlers};
 /// Endpoints registrados:
 /// - `GET /teams/options`
 /// - `GET /teams/structures`
-/// - `GET /teams/{team_id}/competitions/{competition_id}`
+/// - `GET /teams/{team_id}/competitions/{competition_id}/structure`
 ///
 /// Cada rota delega para handlers em `controllers::teams`.
 pub fn router() -> Router<AppState> {
@@ -29,7 +29,7 @@ pub fn router() -> Router<AppState> {
         .route("/teams/options", get(handlers::teams::get_options))
         .route("/teams/structures", get(handlers::teams::get_structures))
         .route(
-            "/teams/{team_id}/competitions/{competition_id}",
+            "/teams/{team_id}/competitions/{competition_id}/structure",
             get(handlers::teams::get_structure_by_year),
         )
 }

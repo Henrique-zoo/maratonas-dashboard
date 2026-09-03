@@ -39,6 +39,8 @@ pub struct CompetitionStructure {
     pub gender_category: GenderCategory,
     /// Anos em que a competição possui eventos ou resultados no recorte consultado.
     pub years: Vec<u32>,
+    /// Ano ao qual pertencem os eventos deste snapshot.
+    pub snapshot_year: u32,
     /// Tipos de localização presentes nos eventos da competição.
     pub location_types: Vec<LocationType>,
     /// Eventos associados à competição.
@@ -79,6 +81,8 @@ pub struct TeamSubStructure {
     pub name: String,
     /// Posição do time no evento.
     pub rank: u32,
+    /// Identificador estável da instituição vinculada ao time.
+    pub institution_id: i32,
     /// Nome da instituição vinculada ao time.
     pub institution_name: String,
     /// Nome curto da instituição, quando cadastrado.
@@ -143,12 +147,14 @@ impl From<TempCompetitionStructure> for CompetitionStructure {
     fn from(value: TempCompetitionStructure) -> Self {
         let mut location_types = value.location_types;
         location_types.sort();
+        let snapshot_year = value.years.iter().copied().max().unwrap_or_default();
         Self {
             id: value.id,
             name: value.name,
             website_url: value.website_url,
             gender_category: value.gender_category,
             years: value.years,
+            snapshot_year,
             location_types,
             events: value
                 .events
@@ -240,6 +246,7 @@ impl TeamSubStructure {
         id: i32,
         name: String,
         rank: i32,
+        institution_id: i32,
         institution_name: String,
         institution_short_name: Option<String>,
         institution_location: String,
@@ -250,6 +257,7 @@ impl TeamSubStructure {
             id,
             name,
             rank: rank as u32,
+            institution_id,
             institution_name,
             institution_short_name,
             institution_location,
@@ -273,6 +281,7 @@ mod tests {
             1000,
             "Bit Masters".to_string(),
             2,
+            50,
             "USP".to_string(),
             Some("USP".to_string()),
             "Sao Paulo".to_string(),
@@ -296,6 +305,7 @@ mod tests {
                 1000,
                 "Bit Masters".to_string(),
                 1,
+                50,
                 "USP".to_string(),
                 None,
                 "Sao Paulo".to_string(),

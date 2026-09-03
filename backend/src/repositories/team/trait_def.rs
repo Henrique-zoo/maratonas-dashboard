@@ -20,7 +20,7 @@ use crate::{
     repositories::{
         Registry,
         team::{options, structures},
-        types::{IdNameRow, teams::TeamStructureRow},
+        types::teams::{TeamOptionRow, TeamStructureRow},
     },
 };
 
@@ -41,7 +41,8 @@ pub trait TeamRepository: Send + Sync {
     /// * `institution_ids` - IDs opcionais de instituições.
     ///
     /// # Retorno
-    /// Vetor de pares `(id, name)` ordenado por `name`.
+    /// Vetor de opções de equipe com o contexto da instituição, ordenado por
+    /// nome da equipe e da instituição.
     ///
     /// # Erros
     /// Propaga falhas de acesso ao banco de dados.
@@ -49,7 +50,7 @@ pub trait TeamRepository: Send + Sync {
         &self,
         competition_ids: Option<Vec<i32>>,
         institution_ids: Option<Vec<i32>>,
-    ) -> AppResult<Vec<IdNameRow>>;
+    ) -> AppResult<Vec<TeamOptionRow>>;
 
     /// Retorna estrutura detalhada dos times informados.
     ///
@@ -79,7 +80,7 @@ impl TeamRepository for Registry {
         &self,
         competition_ids: Option<Vec<i32>>,
         institution_ids: Option<Vec<i32>>,
-    ) -> AppResult<Vec<IdNameRow>> {
+    ) -> AppResult<Vec<TeamOptionRow>> {
         options::find_options_by_competitions_and_institutions(
             self,
             competition_ids,

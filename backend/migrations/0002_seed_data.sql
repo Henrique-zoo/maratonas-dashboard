@@ -176,6 +176,34 @@ VALUES
 	(24, 'UFMG Inconfidentes', 12);
 
 -- =========================
+-- MEMBER
+-- =========================
+
+-- IDs 1..48 form the canonical two-person rosters. IDs 49..134 are
+-- event-specific coaches (one for each team_event below).
+INSERT INTO member (id, gender)
+SELECT
+	gs,
+	CASE gs % 4
+		WHEN 0 THEN 'Female'::gender
+		WHEN 1 THEN 'Male'::gender
+		WHEN 2 THEN 'Other'::gender
+		ELSE 'RatherNotAnswer'::gender
+	END
+FROM generate_series(1, 134) AS gs;
+
+-- =========================
+-- TEAM_CONTESTANT
+-- =========================
+
+INSERT INTO team_contestant (team_id, member_id)
+SELECT
+	team_id,
+	((team_id - 1) * 2) + roster.member_offset
+FROM generate_series(1, 24) AS team_id
+CROSS JOIN (VALUES (1), (2)) AS roster(member_offset);
+
+-- =========================
 -- TEAM_EVENT
 -- =========================
 
@@ -281,36 +309,17 @@ JOIN institution_location AS il
 	ON il.institution_id = t.institution_id;
 
 -- =========================
--- MEMBER
--- =========================
-
-INSERT INTO member (id, gender)
-SELECT
-	gs,
-	CASE gs % 4
-		WHEN 0 THEN 'Female'::gender
-		WHEN 1 THEN 'Male'::gender
-		WHEN 2 THEN 'Other'::gender
-		ELSE 'RatherNotAnswer'::gender
-	END
-FROM generate_series(1, 258) AS gs;
-
--- =========================
 -- TEAM_EVENT_MEMBER
 -- =========================
 
+-- Contestants are inserted automatically from team_contestant when each
+-- team_event is created. Only the event-specific Coach remains to be seeded.
 INSERT INTO team_event_member (member_id, team_event_id, role)
 SELECT
-	((te_id - 1) * 3) + role_map.member_offset AS member_id,
+	48 + te_id AS member_id,
 	te_id AS team_event_id,
-	role_map.member_role AS role
-FROM generate_series(1, 86) AS te_id
-CROSS JOIN (
-	VALUES
-		(1, 'Contestant'::role),
-		(2, 'Contestant'::role),
-		(3, 'Coach'::role)
-) AS role_map(member_offset, member_role);
+	'Coach'::role
+FROM generate_series(1, 86) AS te_id;
 
 -- =========================
 -- PROBLEM

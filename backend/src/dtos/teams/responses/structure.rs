@@ -54,6 +54,8 @@ pub struct CompetitionSubStructure {
     pub gender_category: GenderCategory,
     /// Anos em que o time participou da competição.
     pub years: Vec<u32>,
+    /// Último ano em que o time participou desta competição; é o recorte dos eventos abaixo.
+    pub snapshot_year: u32,
     /// Total de integrantes do time no recorte da competição.
     pub total_members: u32,
     /// Total de integrantes femininas do time no recorte da competição.
@@ -148,12 +150,14 @@ impl From<TempCompetitionSubStructure> for CompetitionSubStructure {
     /// Preserva métricas normalizadas e transforma eventos indexados em vetor
     /// serializável.
     fn from(value: TempCompetitionSubStructure) -> Self {
+        let snapshot_year = value.years.iter().copied().max().unwrap_or_default();
         Self {
             id: value.id,
             name: value.name,
             website_url: value.website_url,
             gender_category: value.gender_category,
             years: value.years,
+            snapshot_year,
             total_members: value.total_members,
             female_participants: value.female_participants,
             events: value.events.into_values().collect(),
@@ -298,6 +302,7 @@ mod tests {
         assert_eq!(team.id, 1000);
         assert_eq!(team.competitions.len(), 1);
         assert_eq!(team.competitions[0].years, vec![2023, 2024]);
+        assert_eq!(team.competitions[0].snapshot_year, 2024);
         assert_eq!(team.competitions[0].total_members, 3);
         assert_eq!(team.competitions[0].female_participants, 1);
         assert_eq!(team.competitions[0].events[0].team_event_rank, 2);

@@ -21,7 +21,8 @@ use crate::{AppState, handlers};
 /// Endpoints registrados:
 /// - `GET /institutions/options`
 /// - `GET /institutions/structures`
-/// - `GET /institutions/{institution_id}/events/{event_id}`
+/// - `GET /institutions/{id}/events/options`
+/// - `GET /institutions/{institution_id}/events/{event_id}/performance`
 ///
 /// Cada rota delega para handlers em `controllers::institutions`.
 pub fn router() -> Router<AppState> {
@@ -35,7 +36,11 @@ pub fn router() -> Router<AppState> {
             get(handlers::institutions::get_structures),
         )
         .route(
-            "/institutions/{institution_id}/events/{event_id}",
+            "/institutions/{id}/events/options",
+            get(handlers::institutions::get_event_options),
+        )
+        .route(
+            "/institutions/{institution_id}/events/{event_id}/performance",
             get(handlers::institutions::get_event_performance_over_time),
         )
 }

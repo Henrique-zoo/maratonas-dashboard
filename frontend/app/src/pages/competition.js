@@ -4,6 +4,7 @@ import {
   getCompetitionStructures,
   getCompetitionYearStructure,
 } from '../lib/api.js';
+import { initCustomDropdowns, renderDropdown } from '../lib/custom-select.js';
 import {
   chooseLocationType,
   escapeHtml,
@@ -20,7 +21,9 @@ import {
 } from '../lib/ui.js';
 import { getCompetitionOverview, latestYear } from '../lib/metrics.js';
 
-function renderEventCard(event, competitionId, competitionName, year) {
+let dropdownAbortController = null;
+
+function renderEventCard(event, competitionId, year) {
   const rows = event.teams.slice(0, 5).map((team) => [
     { value: `<strong>#${formatNumber(team.rank)}</strong>` },
     {
@@ -38,17 +41,8 @@ function renderEventCard(event, competitionId, competitionName, year) {
           <h3>
             <a href="/events/${event.id}${serialiseQuery({
               year,
-              name: event.name,
-              date: event.date,
-              location: event.location,
-              locationTypes: (event.location_types || []).join(','),
-              competitionId,
-              competitionName,
             })}" data-link>${escapeHtml(event.name)}</a>
           </h3>
-        </div>
-        <div class="tag-row">
-          ${(event.location_types || []).map((locationType) => renderChip(locationType, 'slate')).join('')}
         </div>
       </div>
       <p class="card-note">${escapeHtml(event.location)} · ${escapeHtml(String(event.teams.length))} ranked teams</p>
@@ -59,12 +53,12 @@ function renderEventCard(event, competitionId, competitionName, year) {
               columns: [
                 { label: 'Rank' },
                 { label: 'Team' },
-                { label: 'Members', align: 'right' },
-                { label: 'Women', align: 'right' },
+                { label: 'Contestant entries', align: 'right' },
+                { label: 'Female entries', align: 'right' },
               ],
               rows,
             })
-          : renderEmptyState('No ranking rows', 'This event has no team rows in the selected season.')
+          : renderEmptyState('No ranking rows', 'This event has no team rows in the selected year.')
       }
     </article>
   `;
@@ -87,6 +81,11 @@ export async function render({ params, query, navigate }) {
   const overview = getCompetitionOverview(competition);
   const selectedYear = query.year ? Number(query.year) : latestYear(competition.years);
   const yearStructure = await getCompetitionYearStructure(competitionId, selectedYear);
+  const annualOverview = getCompetitionOverview({
+    ...competition,
+    snapshot_year: selectedYear,
+    events: yearStructure.events,
+  });
   const stats = await getCompetitionStats(competitionId, selectedYear);
   const rawLocationTypes = yearStructure.location_types?.length
     ? yearStructure.location_types
@@ -98,15 +97,10 @@ export async function render({ params, query, navigate }) {
 
   const html = `
     ${renderPageIntro({
-      eyebrow: 'Competition dossier',
+      eyebrow: 'Competition',
       title: competition.name,
-      blurb:
-        'Season-by-season fixture sheet, roster volume and geographic spread for the selected competition.',
-      meta: [
-        renderChip(competition.gender_category, 'amber'),
-        renderChip(`${overview.yearSpan} seasons`, 'navy'),
-        ...(competition.location_types || []).map((locationType) => renderChip(locationType, 'slate')),
-      ],
+      blurb: 'Review events, teams and location data by year.',
+      meta: [renderChip(competition.gender_category, 'amber'), renderChip(`Year ${selectedYear}`, 'navy')],
       actions: competition.website_url
         ? `<a class="button button--ghost" href="${competition.website_url}" target="_blank" rel="noreferrer">Official site</a>`
         : '',
@@ -114,30 +108,27 @@ export async function render({ params, query, navigate }) {
 
     <section class="panel panel--filters">
       <form class="filter-bar" id="competition-detail-filters">
-        <label>
-          <span>Season</span>
-          <select name="year">
-            ${[...competition.years]
+          ${renderDropdown({
+            name: 'year',
+            label: 'Year',
+            options: [...competition.years]
               .sort((left, right) => right - left)
-              .map(
-                (year) =>
-                  `<option value="${year}" ${year === selectedYear ? 'selected' : ''}>${year}</option>`,
-              )
-              .join('')}
-          </select>
-        </label>
-        <label>
-          <span>Location tier</span>
-          <select name="locationType">
-            ${locationChoices
-              .map(
-                (locationType) =>
-                  `<option value="${locationType}" ${locationType === selectedLocationType ? 'selected' : ''}>${locationType}</option>`,
-              )
-              .join('')}
-          </select>
-        </label>
-        <button class="button" type="submit">Refresh board</button>
+              .map((year) => ({ id: String(year), name: String(year) })),
+            selectedValue: selectedYear,
+            placeholder: 'Select year',
+          })}
+          ${renderDropdown({
+            name: 'locationType',
+            label: 'Location level',
+            options: locationChoices.map((locationType) => ({
+              id: locationType,
+              name: locationType,
+            })),
+            selectedValue: selectedLocationType,
+            placeholder: 'Select location',
+            disabled: !locationChoices.length,
+          })}
+        <button class="button" type="submit">Apply</button>
       </form>
     </section>
 
@@ -145,11 +136,23 @@ export async function render({ params, query, navigate }) {
       {
         label: 'Institutions',
         value: formatNumber(stats.total_institutions),
-        hint: `Season ${selectedYear}`,
+        hint: `Distinct · year ${selectedYear}`,
       },
-      { label: 'Teams', value: formatNumber(stats.total_teams), hint: 'Qualified team entries' },
-      { label: 'Participants', value: formatNumber(stats.total_participants), hint: 'Roster count' },
-      { label: 'Women tracked', value: formatNumber(stats.female_participants), hint: 'Absolute count' },
+      {
+        label: 'Teams',
+        value: formatNumber(stats.total_teams),
+        hint: `Distinct · year ${selectedYear}`,
+      },
+      {
+        label: 'Participants',
+        value: formatNumber(stats.total_participants),
+        hint: `Distinct people · year ${selectedYear}`,
+      },
+      {
+        label: 'Female participants',
+        value: formatNumber(stats.female_participants),
+        hint: 'Distinct people',
+      },
     ])}
 
     <section class="content-grid">
@@ -173,15 +176,21 @@ export async function render({ params, query, navigate }) {
       <article class="panel">
         <div class="section-head">
           <div>
-            <span class="eyebrow">Season summary</span>
-            <h2>${selectedYear} fixture scope</h2>
+            <span class="eyebrow">Year summary</span>
+            <h2>${selectedYear} events</h2>
           </div>
         </div>
         ${renderMetricStrip([
           { label: 'Events', value: formatNumber(yearStructure.events.length) },
-          { label: 'Tracked years', value: overview.yearSpan },
-          { label: 'Unique teams overall', value: formatNumber(overview.uniqueTeams) },
-          { label: 'Women overall', value: formatNumber(overview.femaleParticipants) },
+          { label: 'Available years', value: overview.yearSpan },
+          {
+            label: 'Unique teams',
+            value: formatNumber(annualOverview.uniqueTeams),
+          },
+          {
+            label: 'Female entries',
+            value: formatNumber(annualOverview.femaleParticipantEntries),
+          },
         ])}
         ${
           yearStructure.events.length
@@ -197,12 +206,6 @@ export async function render({ params, query, navigate }) {
                   {
                     value: `<a href="/events/${event.id}${serialiseQuery({
                       year: selectedYear,
-                      name: event.name,
-                      date: event.date,
-                      location: event.location,
-                      locationTypes: (event.location_types || []).join(','),
-                      competitionId,
-                      competitionName: competition.name,
                     })}" data-link><strong>${escapeHtml(event.name)}</strong></a>`,
                   },
                   { value: escapeHtml(formatDate(event.date)) },
@@ -212,7 +215,7 @@ export async function render({ params, query, navigate }) {
               })
             : renderEmptyState(
                 'No events found for this year',
-                'Try selecting another season from the filter bar above.',
+                'Try selecting another year from the filter bar above.',
               )
         }
       </article>
@@ -221,12 +224,12 @@ export async function render({ params, query, navigate }) {
     <section class="section-block">
       <div class="section-head">
         <div>
-          <span class="eyebrow">Event reports</span>
-          <h2>Ranking cards inside the selected season</h2>
+          <span class="eyebrow">Events</span>
+          <h2>Rankings for the selected year</h2>
         </div>
       </div>
       <div class="card-grid card-grid--two">
-        ${yearStructure.events.map((event) => renderEventCard(event, competitionId, competition.name, selectedYear)).join('') || renderEmptyState('No event cards available', 'There are no event rows to render in this season.')}
+        ${yearStructure.events.map((event) => renderEventCard(event, competitionId, selectedYear)).join('') || renderEmptyState('No event cards available', 'There are no events to show for this year.')}
       </div>
     </section>
   `;
@@ -236,6 +239,14 @@ export async function render({ params, query, navigate }) {
     html,
     afterRender() {
       const form = document.getElementById('competition-detail-filters');
+
+      if (dropdownAbortController) {
+        dropdownAbortController.abort();
+      }
+
+      dropdownAbortController = new AbortController();
+      initCustomDropdowns(document, dropdownAbortController.signal);
+
       form.addEventListener('submit', (event) => {
         event.preventDefault();
         const data = new FormData(form);

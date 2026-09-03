@@ -7,6 +7,7 @@ import { renderErrorState } from './lib/ui.js';
 
 const { app, searchInput, searchPanel } = mountSiteShell();
 const globalSearch = initGlobalSearch({ searchInput, searchPanel });
+let renderSequence = 0;
 
 function parseQuery(search) {
   return Object.fromEntries(new URLSearchParams(search).entries());
@@ -32,6 +33,7 @@ export function navigate(href, { replace = false } = {}) {
 }
 
 async function renderCurrentRoute() {
+  const currentRender = ++renderSequence;
   const url = new URL(window.location.href);
   const route = matchRoute(url.pathname);
 
@@ -54,6 +56,10 @@ async function renderCurrentRoute() {
       navigate,
     });
 
+    if (currentRender !== renderSequence) {
+      return;
+    }
+
     document.title = `${result.title} | MD Stack`;
     app.innerHTML = result.html;
 
@@ -63,6 +69,10 @@ async function renderCurrentRoute() {
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (error) {
+    if (currentRender !== renderSequence) {
+      return;
+    }
+
     document.title = 'Something Went Wrong | MD Stack';
     app.innerHTML = renderErrorState(error.message);
   }

@@ -82,6 +82,7 @@ pub async fn get_structures(
                         row.competition_id,
                         row.competition_name,
                         row.competition_website_url,
+                        row.competition_years,
                         IndexMap::new(),
                     )
                 })
@@ -138,6 +139,7 @@ mod tests {
             competition_id: 10,
             competition_name: "ICPC".to_string(),
             competition_website_url: Some("https://icpc.org".to_string()),
+            competition_years: vec![2023, 2024],
             event_id: 100,
             event_name: "Regional".to_string(),
             event_date: NaiveDate::from_ymd_opt(2024, 10, 1).unwrap(),

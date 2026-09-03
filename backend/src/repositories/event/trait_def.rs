@@ -7,6 +7,7 @@
 //! Declara trait assíncrona com operações de leitura necessárias aos services, permitindo mock em testes e desacoplamento da implementação SQL.
 //!
 //! ## Funções
+//! - `find_structure`: Recupera a identidade e as ocorrências do evento no ano solicitado.
 //! - `find_location_stats`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
 //! - `find_event_stats_by_year`: Executa query SQL tipada para recuperar projeções usadas pela camada de serviço.
 //!
@@ -19,8 +20,8 @@ use crate::{
     errors::AppResult,
     repositories::{
         Registry,
-        event::stats,
-        types::events::{EventLocationStatsRow, EventYearStatsRow},
+        event::{stats, structure},
+        types::events::{EventLocationStatsRow, EventYearStatsRow, EventYearStructureRow},
     },
     shared::types::LocationType,
 };
@@ -29,8 +30,17 @@ use crate::{
 #[async_trait]
 /// Contrato de leitura analítica para o domínio de eventos.
 ///
-/// A implementação concreta em [`Registry`] delega para `event::stats`.
+/// A implementação concreta em [`Registry`] delega para `event::structure` e
+/// `event::stats`.
 pub trait EventRepository: Send + Sync {
+    /// Retorna a identidade do evento e suas ocorrências no ano solicitado.
+    /// Sem ano explícito, seleciona o último ano disponível para o evento.
+    async fn find_structure(
+        &self,
+        event_id: i32,
+        year: Option<i32>,
+    ) -> AppResult<Vec<EventYearStructureRow>>;
+
     /// Retorna estatísticas de um evento agregadas por localidade.
     ///
     /// # Parâmetros
@@ -72,6 +82,14 @@ pub trait EventRepository: Send + Sync {
 
 #[async_trait]
 impl EventRepository for Registry {
+    async fn find_structure(
+        &self,
+        event_id: i32,
+        year: Option<i32>,
+    ) -> AppResult<Vec<EventYearStructureRow>> {
+        structure::find_structure(self, event_id, year).await
+    }
+
     /// Implementa [`EventRepository::find_location_stats`].
     ///
     /// Delega o cálculo das estatísticas por localização para

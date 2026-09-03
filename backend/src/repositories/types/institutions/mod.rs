@@ -8,6 +8,7 @@
 //!
 //! ## Submódulos
 //! - `event_performance_row`: organiza uma parte especializada deste escopo.
+//! - `institution_event_option_row`: modela eventos e anos disponíveis para uma instituição.
 //! - `institution_structure_row`: organiza uma parte especializada deste escopo.
 //!
 //! ## Funções
@@ -17,7 +18,9 @@
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
 mod event_performance_row;
+mod institution_event_option_row;
 mod institution_structure_row;
 
 pub use event_performance_row::EventPerformanceRow;
+pub use institution_event_option_row::InstitutionEventOptionRow;
 pub use institution_structure_row::InstitutionStructureRow;

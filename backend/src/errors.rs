@@ -30,6 +30,9 @@ pub enum AppError {
     /// Requisição inválida detectada pela camada de validação ou serviço.
     #[error("Bad request: {0}")]
     BadRequest(String),
+    /// Recurso ou recorte solicitado não encontrado.
+    #[error("Not found: {0}")]
+    NotFound(String),
     /// Falha propagada pelo driver ou pool PostgreSQL.
     #[error("Database error")]
     Database(#[from] sqlx::Error),
@@ -45,12 +48,21 @@ pub type AppResult<T> = Result<T, AppError>;
 impl IntoResponse for AppError {
     /// Converte um erro da aplicação em resposta HTTP JSON.
     ///
-    /// `BadRequest` é mapeado para `400 Bad Request`; erros de banco são
-    /// mapeados para `500 Internal Server Error`.
+    /// `BadRequest` é mapeado para `400 Bad Request`, `NotFound` para `404 Not
+    /// Found` e erros de banco para `500 Internal Server Error`. A causa de uma
+    /// falha de banco é registrada apenas no servidor e não integra o contrato
+    /// público da API.
     fn into_response(self) -> Response {
         let (status, message) = match self {
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
-            AppError::Database(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()),
+            AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
+            AppError::Database(error) => {
+                eprintln!("Database error: {error}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error.".to_string(),
+                )
+            }
         };
 
         (status, Json(json!({ "error": message }))).into_response()
@@ -79,13 +91,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn database_response_uses_500_and_driver_message() {
+    async fn database_response_uses_500_and_public_message() {
         let response = AppError::Database(sqlx::Error::RowNotFound).into_response();
 
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(
             response_payload(response).await,
-            json!({ "error": "no rows returned by a query that expected to return at least one row" })
+            json!({ "error": "Internal server error." })
+        );
+    }
+
+    #[tokio::test]
+    async fn not_found_response_uses_404_and_public_message() {
+        let response = AppError::NotFound("event not found".to_string()).into_response();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            response_payload(response).await,
+            json!({ "error": "event not found" })
         );
     }
 }

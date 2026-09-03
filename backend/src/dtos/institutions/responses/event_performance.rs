@@ -31,7 +31,7 @@ pub struct EventPerformance {
     /// Nome do time responsável pela melhor colocação.
     pub best_performance_team_name: String,
     /// Colocação média dos times da instituição no ano.
-    pub medium_performance_rank: f32,
+    pub average_performance_rank: f32,
 }
 
 impl From<EventPerformanceRow> for EventPerformance {
@@ -45,7 +45,7 @@ impl From<EventPerformanceRow> for EventPerformance {
             best_performance_rank: value.best_performance_rank,
             best_performance_team_id: value.best_performance_team_id,
             best_performance_team_name: value.best_performance_team_name,
-            medium_performance_rank: value.medium_performance_rank,
+            average_performance_rank: value.average_performance_rank,
         }
     }
 }
@@ -61,13 +61,13 @@ mod tests {
             best_performance_rank: 1,
             best_performance_team_id: 1000,
             best_performance_team_name: "Bit Masters".to_string(),
-            medium_performance_rank: 2.5,
+            average_performance_rank: 2.5,
         });
 
         assert_eq!(performance.year, 2024);
         assert_eq!(performance.best_performance_rank, 1);
         assert_eq!(performance.best_performance_team_id, 1000);
         assert_eq!(performance.best_performance_team_name, "Bit Masters");
-        assert_eq!(performance.medium_performance_rank, 2.5);
+        assert_eq!(performance.average_performance_rank, 2.5);
     }
 }

@@ -1,7 +1,9 @@
 use cucumber::gherkin::Step;
 
+pub(crate) mod api_steps;
 pub(crate) mod competition_steps;
 pub(crate) mod institution_steps;
+pub(crate) mod membership_steps;
 pub(crate) mod organization_steps;
 pub(crate) mod team_steps;
 
