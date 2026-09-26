@@ -17,4 +17,5 @@
 //! Este módulo não define tipos novos; ele reutiliza contratos declarados em outros arquivos.
 //!
 pub mod serde;
+#[allow(dead_code)]
 pub mod types;

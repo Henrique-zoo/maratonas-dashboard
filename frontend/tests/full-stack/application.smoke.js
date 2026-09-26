@@ -31,6 +31,14 @@ test('the browser reaches the real API and PostgreSQL through the production fro
 
   const result = page.locator('[data-structure-result]');
   await expect(result.getByRole('heading', { name: 'Alpha Coders', exact: true })).toBeVisible();
-  await expect(result.getByRole('link', { name: 'Global Algorithm Cup', exact: true })).toBeVisible();
+  const competitionLink = result.getByRole('link', { name: 'Global Algorithm Cup', exact: true });
+  await expect(competitionLink).toBeVisible();
   await expect(result.getByRole('link', { name: 'Regional Code League', exact: true })).toBeVisible();
+
+  await page.goto('/competitions/10');
+
+  await expect(page).toHaveURL(/\/competitions\/10/);
+  await expect(page.getByRole('heading', { name: 'Annual participant totals' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Distinct participants over time' })).toBeVisible();
+  await expect(page.getByRole('figure', { name: 'Participants by location' })).toBeVisible();
 });

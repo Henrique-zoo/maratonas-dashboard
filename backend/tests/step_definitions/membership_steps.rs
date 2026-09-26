@@ -1,3 +1,25 @@
+//! # `cucumber::step_definitions::membership_steps`
+//!
+//! ## Responsabilidade
+//! Exercita identidade de equipes, elencos, participações e constraints reais do PostgreSQL.
+//!
+//! ## Lógica de Implementação
+//! Opera diretamente no pool do World, usando cenários com `@isolated_database`.
+//! Preparações exigem sucesso; tentativas potencialmente inválidas capturam
+//! `TestDatabaseMutation` para verificar SQLSTATE e constraint posteriormente.
+//! Operações concorrentes usam transações distintas, barreira e `tokio::join!`;
+//! os `Then`s verificam resultados e estado persistido. Estas operações SQL não
+//! representam endpoints de escrita da API.
+//!
+//! ## Funções
+//! - `create_team`, `insert_team_event`, `insert_membership`: preparação e mutações SQL.
+//! - `insert_*_in_transaction`: mutações sincronizadas para disputas concorrentes.
+//! - `try_*`, `concurrently_*`: captura dos resultados no World.
+//! - `assert_last_database_constraint` e steps `*_should_*`: verificações do contrato do banco.
+//!
+//! ## Tipos
+//! Reutiliza `ApiWorld`, `TestDatabaseMutation`, pools SQLx e `Barrier`.
+
 use std::sync::Arc;
 
 use cucumber::{given, then, when};
@@ -6,6 +28,13 @@ use tokio::sync::Barrier;
 
 use crate::{ApiWorld, TestDatabaseMutation};
 
+/// Converte uma lista CSV de IDs, removendo espaços ao redor de cada valor.
+///
+/// # Retorno
+/// IDs na ordem recebida, sem deduplicação.
+///
+/// # Erros
+/// Dispara panic se algum elemento não puder ser convertido para `i32`.
 fn parse_member_ids(member_ids: &str) -> Vec<i32> {
     member_ids
         .split(',')
@@ -18,6 +47,19 @@ fn parse_member_ids(member_ids: &str) -> Vec<i32> {
         .collect()
 }
 
+/// Cria uma equipe e seu elenco canônico em uma única transação.
+///
+/// # Parâmetros
+/// - `pool`: pool gravável da base isolada do cenário.
+/// - `team_id`, `name`, `institution_id`: identidade e vínculo institucional.
+/// - `contestant_ids`: membros inseridos em `team_contestant`.
+///
+/// # Retorno
+/// `Ok(())` após o commit da equipe e de todo o elenco.
+///
+/// # Erros
+/// Propaga falhas SQLx da abertura, inserções ou commit, incluindo constraints
+/// de identidade avaliadas ao finalizar a transação.
 async fn create_team(
     pool: &sqlx::PgPool,
     team_id: i32,
@@ -45,6 +87,18 @@ async fn create_team(
     transaction.commit().await
 }
 
+/// Insere uma participação com campus nulo e posição 999 para testar regras do banco.
+///
+/// # Parâmetros
+/// - `pool`: pool da base isolada.
+/// - `team_id`: equipe participante.
+/// - `event_instance_id`: ocorrência do evento.
+///
+/// # Retorno
+/// Resultado SQLx da inserção.
+///
+/// # Erros
+/// Propaga erros de conexão, execução e constraints.
 async fn insert_team_event(
     pool: &sqlx::PgPool,
     team_id: i32,
@@ -60,6 +114,19 @@ async fn insert_team_event(
     .await
 }
 
+/// Insere uma participação em transação após sincronizar operações concorrentes.
+///
+/// # Parâmetros
+/// - `pool`: handle do pool isolado, com capacidade para conexões simultâneas.
+/// - `barrier`: barreira compartilhada com a outra operação do teste.
+/// - `team_id`, `event_instance_id`: equipe e ocorrência de destino.
+///
+/// # Retorno
+/// `Ok(())` após o commit.
+///
+/// # Erros
+/// Propaga erros SQLx. A barreira é aguardada após a abertura da transação e
+/// antes do INSERT, aproximando o início das duas mutações.
 async fn insert_team_event_in_transaction(
     pool: sqlx::PgPool,
     barrier: Arc<Barrier>,
@@ -81,6 +148,19 @@ async fn insert_team_event_in_transaction(
     transaction.commit().await
 }
 
+/// Acrescenta um competidor ao elenco em transação sincronizada por barreira.
+///
+/// # Parâmetros
+/// - `pool`: handle do pool isolado.
+/// - `barrier`: sincronização com a inscrição concorrente da equipe.
+/// - `team_id`, `member_id`: equipe e membro acrescentado ao elenco canônico.
+///
+/// # Retorno
+/// `Ok(())` após o commit.
+///
+/// # Erros
+/// Propaga falhas SQLx, inclusive a rejeição do elenco caso a participação já o
+/// tenha tornado imutável.
 async fn insert_canonical_contestant_in_transaction(
     pool: sqlx::PgPool,
     barrier: Arc<Barrier>,
@@ -99,6 +179,18 @@ async fn insert_canonical_contestant_in_transaction(
     transaction.commit().await
 }
 
+/// Insere o papel de um membro em uma participação na base isolada do cenário.
+///
+/// # Parâmetros
+/// - `world`: contexto com o pool preparado pelo hook.
+/// - `member_id`, `team_event_id`: membro e participação relacionados.
+/// - `role`: texto convertido para o enum PostgreSQL `role`.
+///
+/// # Retorno
+/// Resultado SQLx da inserção.
+///
+/// # Erros
+/// Propaga falhas SQLx; acessar um World sem banco dispara panic.
 async fn insert_membership(
     world: &mut ApiWorld,
     member_id: i32,
@@ -116,6 +208,16 @@ async fn insert_membership(
     .await
 }
 
+/// Exige que a última tentativa tenha falhado com SQLSTATE e constraint específicos.
+///
+/// # Parâmetros
+/// - `world`: contexto que deve conter uma mutação capturada.
+/// - `code`: SQLSTATE esperado.
+/// - `constraint`: nome da constraint esperada.
+///
+/// # Erros
+/// Dispara panic se não houver resultado, se a mutação tiver sucesso ou se o
+/// diagnóstico do PostgreSQL divergir do esperado.
 fn assert_last_database_constraint(world: &ApiWorld, code: &str, constraint: &str) {
     let mutation = world
         .last_database_mutation
@@ -130,6 +232,7 @@ fn assert_last_database_constraint(world: &ApiWorld, code: &str, constraint: &st
     assert_eq!(mutation.constraint.as_deref(), Some(constraint));
 }
 
+/// Insere um membro com gênero `Other` como pré-condição; falha de preparação dispara panic.
 #[given(expr = "member {int} exists")]
 async fn member_exists(world: &mut ApiWorld, member_id: i32) {
     sqlx::query("INSERT INTO member (id, gender) VALUES ($1, 'Other'::gender)")
@@ -139,8 +242,9 @@ async fn member_exists(world: &mut ApiWorld, member_id: i32) {
         .expect("test member should be inserted");
 }
 
+/// Prepara uma equipe com elenco canônico via transação e exige sucesso da criação.
 #[given(
-    regex = r#"^team (\d+) named "([^"]+)" from institution (\d+) has canonical Contestants ([\d,\s]+)$"#
+    regex = r#"^team (\d+) named "([^"]+)" from institution (\d+) has official roster ([\d,\s]+)$"#
 )]
 async fn team_has_canonical_contestants(
     world: &mut ApiWorld,
@@ -161,8 +265,9 @@ async fn team_has_canonical_contestants(
     .unwrap_or_else(|error| panic!("team {team_id} should be created: {error}"));
 }
 
+/// Tenta criar equipe e elenco, capturando sucesso ou rejeição para o próximo step.
 #[when(
-    regex = r#"^I try to create team (\d+) named "([^"]+)" from institution (\d+) with canonical Contestants ([\d,\s]+)$"#
+    regex = r#"^I try to create team (\d+) named "([^"]+)" from institution (\d+) with official roster ([\d,\s]+)$"#
 )]
 async fn try_to_create_team(
     world: &mut ApiWorld,
@@ -184,7 +289,8 @@ async fn try_to_create_team(
     world.last_database_mutation = Some(TestDatabaseMutation::from_result(result));
 }
 
-#[when(expr = "I register team {int} in event instance {int}")]
+/// Inscreve a equipe na ocorrência indicada e exige que a preparação tenha sucesso.
+#[when(expr = "team {int} participates in event occurrence {int}")]
 async fn register_team_in_event_instance(
     world: &mut ApiWorld,
     team_id: i32,
@@ -199,7 +305,8 @@ async fn register_team_in_event_instance(
         });
 }
 
-#[when(expr = "I try to register team {int} in event instance {int}")]
+/// Tenta inscrever uma equipe e guarda o resultado sem falhar imediatamente por rejeição.
+#[when(expr = "I try to register team {int} in event occurrence {int}")]
 async fn try_to_register_team_in_event_instance(
     world: &mut ApiWorld,
     team_id: i32,
@@ -209,7 +316,8 @@ async fn try_to_register_team_in_event_instance(
     world.last_database_mutation = Some(TestDatabaseMutation::from_result(result));
 }
 
-#[when(expr = "I try to add member {int} to the canonical Contestants of team {int}")]
+/// Tenta incluir um membro no elenco canônico e captura o diagnóstico da mutação.
+#[when(expr = "I try to add member {int} to team {int}'s official roster")]
 async fn try_to_add_canonical_contestant(world: &mut ApiWorld, member_id: i32, team_id: i32) {
     let result = sqlx::query(
         "INSERT INTO team_contestant (team_id, member_id)
@@ -223,6 +331,7 @@ async fn try_to_add_canonical_contestant(world: &mut ApiWorld, member_id: i32, t
     world.last_database_mutation = Some(TestDatabaseMutation::from_result(result));
 }
 
+/// Tenta alterar nome e instituição de uma equipe e captura o resultado SQLx.
 #[when(regex = r#"^I try to rename team (\d+) to \"([^\"]+)\" and move it to institution (\d+)$"#)]
 async fn try_to_change_team_attributes(
     world: &mut ApiWorld,
@@ -244,7 +353,8 @@ async fn try_to_change_team_attributes(
     world.last_database_mutation = Some(TestDatabaseMutation::from_result(result));
 }
 
-#[when(expr = "I try to remove member {int} as Contestant from team event {int}")]
+/// Tenta remover um `Contestant` da participação e guarda o resultado da constraint.
+#[when(expr = "I try to remove contestant {int} from participation {int}")]
 async fn try_to_remove_event_contestant(world: &mut ApiWorld, member_id: i32, team_event_id: i32) {
     let result = sqlx::query(
         "DELETE FROM team_event_member
@@ -260,7 +370,8 @@ async fn try_to_remove_event_contestant(world: &mut ApiWorld, member_id: i32, te
     world.last_database_mutation = Some(TestDatabaseMutation::from_result(result));
 }
 
-#[when(regex = r"^I register member (\d+) as (Contestant|Coach|Reserve) in team event (\d+)$")]
+/// Insere o membro no papel indicado e exige sucesso da operação.
+#[when(regex = r"^member (\d+) serves as (Contestant|Coach|Reserve) in participation (\d+)$")]
 async fn register_member(world: &mut ApiWorld, member_id: i32, role: String, team_event_id: i32) {
     insert_membership(world, member_id, &role, team_event_id)
         .await
@@ -271,7 +382,10 @@ async fn register_member(world: &mut ApiWorld, member_id: i32, role: String, tea
         });
 }
 
-#[when(regex = r"^I try to change member (\d+) in team event (\d+) to (Contestant|Coach|Reserve)$")]
+/// Tenta alterar o papel de um membro na participação e captura a aceitação ou rejeição.
+#[when(
+    regex = r"^I try to change member (\d+) in participation (\d+) to (Contestant|Coach|Reserve)$"
+)]
 async fn try_to_change_member_role(
     world: &mut ApiWorld,
     member_id: i32,
@@ -292,8 +406,13 @@ async fn try_to_change_member_role(
     world.last_database_mutation = Some(TestDatabaseMutation::from_result(result));
 }
 
+/// Executa duas inscrições com transações sincronizadas e preserva seus resultados.
+///
+/// Uma barreira de duas partes aproxima o início das mutações; `tokio::join!`
+/// aguarda ambas. O vetor do World segue a ordem das equipes recebidas, não a
+/// ordem de conclusão. Rejeições SQL esperadas ficam disponíveis para os `Then`s.
 #[when(
-    regex = r"^concurrent transactions register teams (\d+) and (\d+) in event instances (\d+) and (\d+)$"
+    regex = r"^teams (\d+) and (\d+) are registered simultaneously in event occurrences (\d+) and (\d+)$"
 )]
 async fn concurrently_register_teams(
     world: &mut ApiWorld,
@@ -323,8 +442,12 @@ async fn concurrently_register_teams(
     ];
 }
 
+/// Disputa a inscrição de uma equipe com a inclusão de um membro no elenco.
+///
+/// Sincroniza as transações por barreira. Guarda primeiro o resultado da inscrição
+/// e depois o da alteração do elenco, independentemente da ordem de conclusão.
 #[when(
-    regex = r"^concurrent transactions register team (\d+) in event instance (\d+) and add member (\d+) to its canonical Contestants$"
+    regex = r"^team (\d+) is registered in event occurrence (\d+) while member (\d+) is simultaneously added to its official roster$"
 )]
 async fn concurrently_register_team_and_change_roster(
     world: &mut ApiWorld,
@@ -353,27 +476,34 @@ async fn concurrently_register_team_and_change_roster(
     ];
 }
 
-#[then("PostgreSQL should reject the duplicate team identity")]
+/// Exige SQLSTATE `23505` e a constraint `uq_team_identity` na última mutação.
+#[then("the duplicate team identity should be rejected")]
 fn duplicate_team_identity_should_be_rejected(world: &mut ApiWorld) {
     assert_last_database_constraint(world, "23505", "uq_team_identity");
 }
 
-#[then("PostgreSQL should reject the canonical roster change")]
+/// Exige a constraint `ck_team_contestant_roster_immutable` com SQLSTATE `23514`.
+#[then("the roster change should be rejected because the team has participated")]
 fn canonical_roster_change_should_be_rejected(world: &mut ApiWorld) {
     assert_last_database_constraint(world, "23514", "ck_team_contestant_roster_immutable");
 }
 
-#[then("PostgreSQL should reject the participating team identity change")]
+/// Exige a constraint `ck_team_identity_immutable` com SQLSTATE `23514`.
+#[then("the identity change should be rejected because the team has participated")]
 fn participating_team_identity_change_should_be_rejected(world: &mut ApiWorld) {
     assert_last_database_constraint(world, "23514", "ck_team_identity_immutable");
 }
 
-#[then("PostgreSQL should reject the event roster change")]
+/// Exige a constraint `ck_team_event_contestant_roster` com SQLSTATE `23514`.
+#[then("the participation roster change should be rejected")]
 fn event_roster_change_should_be_rejected(world: &mut ApiWorld) {
     assert_last_database_constraint(world, "23514", "ck_team_event_contestant_roster");
 }
 
-#[then("PostgreSQL should reject the contestant registration as a uniqueness violation")]
+/// Exige a unicidade de competidor por competição-ano via `uq_contestant_registration_competition_year`.
+#[then(
+    "the registration should be rejected because the contestant already represents a team in that competition-year"
+)]
 fn registration_should_be_rejected(world: &mut ApiWorld) {
     assert_last_database_constraint(
         world,
@@ -382,12 +512,16 @@ fn registration_should_be_rejected(world: &mut ApiWorld) {
     );
 }
 
-#[then("PostgreSQL should reject the duplicate event-year registration")]
+/// Exige a unicidade de competidor por evento-ano via `uq_contestant_event_year`.
+#[then(
+    "the registration should be rejected because a contestant already entered that event in the year"
+)]
 fn event_year_registration_should_be_rejected(world: &mut ApiWorld) {
     assert_last_database_constraint(world, "23505", "uq_contestant_event_year");
 }
 
-#[then("exactly one concurrent team registration should succeed")]
+/// Verifica que exatamente uma das mutações concorrentes foi aceita.
+#[then("exactly one simultaneous team registration should succeed")]
 fn one_concurrent_registration_should_succeed(world: &mut ApiWorld) {
     let succeeded = world
         .concurrent_database_mutations
@@ -398,7 +532,10 @@ fn one_concurrent_registration_should_succeed(world: &mut ApiWorld) {
     assert_eq!(succeeded, 1, "concurrent mutations were {world:?}");
 }
 
-#[then("the rejected concurrent registration should be a uniqueness violation")]
+/// Verifica que uma rejeição concorrente corresponde à unicidade por competição-ano.
+#[then(
+    "the other registration should be rejected because the contestant already represents a team in that competition-year"
+)]
 fn concurrent_registration_should_be_rejected(world: &mut ApiWorld) {
     let rejected = world
         .concurrent_database_mutations
@@ -413,7 +550,8 @@ fn concurrent_registration_should_be_rejected(world: &mut ApiWorld) {
     );
 }
 
-#[then("the concurrent team registration should succeed")]
+/// Exige sucesso no primeiro resultado da disputa, correspondente à inscrição.
+#[then("the simultaneous team registration should succeed")]
 fn concurrent_team_registration_should_succeed(world: &mut ApiWorld) {
     let registration = world
         .concurrent_database_mutations
@@ -426,9 +564,11 @@ fn concurrent_team_registration_should_succeed(world: &mut ApiWorld) {
     );
 }
 
-#[then(
-    "the concurrent roster change should either precede participation or be rejected as immutable"
-)]
+/// Aceita a inclusão no elenco ou sua rejeição por imutabilidade após a participação.
+///
+/// Inspeciona o segundo resultado concorrente. A consistência dos elencos
+/// persistidos é verificada pelos steps de comparação de elenco.
+#[then("the roster change should either precede participation or be rejected as immutable")]
 fn concurrent_roster_change_should_be_consistent(world: &mut ApiWorld) {
     let roster_change = world
         .concurrent_database_mutations
@@ -444,6 +584,7 @@ fn concurrent_roster_change_should_be_consistent(world: &mut ApiWorld) {
     }
 }
 
+/// Conta equipes pelo mesmo nome e instituição e compara com o total esperado.
 #[then(regex = r#"^there should be (\d+) teams named "([^"]+)" from institution (\d+)$"#)]
 async fn homonymous_team_count_should_equal(
     world: &mut ApiWorld,
@@ -465,7 +606,8 @@ async fn homonymous_team_count_should_equal(
     assert_eq!(actual_count, expected_count);
 }
 
-#[then(regex = r"^team (\d+) should have canonical Contestants ([\d,\s]+)$")]
+/// Compara os IDs do elenco canônico com o CSV esperado, ordenando ambos numericamente.
+#[then(regex = r"^team (\d+) should have official roster ([\d,\s]+)$")]
 async fn team_should_have_canonical_contestants(
     world: &mut ApiWorld,
     team_id: i32,
@@ -490,7 +632,8 @@ async fn team_should_have_canonical_contestants(
     assert_eq!(actual, expected_sorted);
 }
 
-#[then(expr = "team event {int} should have exactly the canonical Contestants of team {int}")]
+/// Compara os `Contestant`s da participação com o elenco canônico da equipe por IDs ordenados.
+#[then(expr = "participation {int} should have exactly the official roster of team {int}")]
 async fn team_event_should_match_canonical_roster(
     world: &mut ApiWorld,
     team_event_id: i32,
@@ -519,7 +662,8 @@ async fn team_event_should_match_canonical_roster(
     assert!(rosters_match);
 }
 
-#[then(expr = "team {int} in event instance {int} should have exactly its canonical Contestants")]
+/// Localiza a participação por equipe e ocorrência e compara seus competidores com o elenco canônico.
+#[then(expr = "team {int} in event occurrence {int} should have exactly its official roster")]
 async fn registered_team_should_match_canonical_roster(
     world: &mut ApiWorld,
     team_id: i32,
@@ -550,6 +694,7 @@ async fn registered_team_should_match_canonical_roster(
     assert!(rosters_match);
 }
 
+/// Verifica no banco que o ID de equipe está ausente após a tentativa rejeitada.
 #[then(expr = "team {int} should not exist")]
 async fn team_should_not_exist(world: &mut ApiWorld, team_id: i32) {
     let exists = sqlx::query_scalar::<_, bool>("SELECT EXISTS (SELECT 1 FROM team WHERE id = $1)")
@@ -561,6 +706,7 @@ async fn team_should_not_exist(world: &mut ApiWorld, team_id: i32) {
     assert!(!exists);
 }
 
+/// Confirma que nome e instituição persistidos correspondem aos valores esperados.
 #[then(regex = r#"^team (\d+) should still be named \"([^\"]+)\" at institution (\d+)$"#)]
 async fn team_attributes_should_equal(
     world: &mut ApiWorld,
@@ -581,7 +727,8 @@ async fn team_attributes_should_equal(
     assert_eq!(actual, (expected_name, expected_institution_id));
 }
 
-#[then(expr = "member {int} should not be a canonical Contestant of team {int}")]
+/// Confirma a ausência do vínculo entre membro e elenco canônico da equipe.
+#[then(expr = "member {int} should not belong to team {int}'s official roster")]
 async fn member_should_not_be_canonical_contestant(
     world: &mut ApiWorld,
     member_id: i32,
@@ -603,7 +750,8 @@ async fn member_should_not_be_canonical_contestant(
     assert!(!exists);
 }
 
-#[then(expr = "team {int} should not be registered in event instance {int}")]
+/// Confirma que a equipe não possui participação na ocorrência indicada.
+#[then(expr = "team {int} should not participate in event occurrence {int}")]
 async fn team_should_not_be_registered(world: &mut ApiWorld, team_id: i32, event_instance_id: i32) {
     let exists = sqlx::query_scalar::<_, bool>(
         "SELECT EXISTS (
@@ -621,7 +769,10 @@ async fn team_should_not_be_registered(world: &mut ApiWorld, team_id: i32, event
     assert!(!exists);
 }
 
-#[then(regex = r"^member (\d+) should have role (Contestant|Coach|Reserve) in team event (\d+)$")]
+/// Consulta e compara o papel persistido do membro na participação.
+#[then(
+    regex = r"^member (\d+) should have role (Contestant|Coach|Reserve) in participation (\d+)$"
+)]
 async fn member_should_have_role(
     world: &mut ApiWorld,
     member_id: i32,
@@ -642,8 +793,9 @@ async fn member_should_have_role(
     assert_eq!(actual_role, role);
 }
 
+/// Conta participações como `Contestant` por membro, equipe, competição e ano da ocorrência.
 #[then(
-    regex = r"^member (\d+) should have (\d+) Contestant participations? for team (\d+) in competition (\d+) in (\d{4})$"
+    regex = r"^member (\d+) should have (\d+) contestant participations? for team (\d+) in competition (\d+) in (\d{4})$"
 )]
 async fn contestant_participation_count_should_equal(
     world: &mut ApiWorld,
@@ -676,6 +828,7 @@ async fn contestant_participation_count_should_equal(
     assert_eq!(actual_count, expected_count);
 }
 
+/// Conta equipes distintas representadas como `Contestant` pelo membro na competição e ano.
 #[then(regex = r"^member (\d+) should represent (\d+) teams? in competition (\d+) in (\d{4})$")]
 async fn represented_team_count_should_equal(
     world: &mut ApiWorld,

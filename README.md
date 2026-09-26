@@ -166,8 +166,10 @@ cargo test --test cucumber --locked -- --color never
 cargo test --locked
 ```
 
-Os cenários BDD usam Testcontainers para criar um PostgreSQL isolado; portanto,
-eles exigem que o Docker esteja ativo.
+Os cenários BDD exigem que o Docker esteja ativo. A suíte mantém um único
+PostgreSQL efêmero via Testcontainers, prepara uma base-modelo uma vez e
+compartilha uma cópia somente para leitura entre cenários consultivos. Cenários
+que alteram a persistência recebem bases isoladas clonadas desse modelo.
 
 Para instalar as ferramentas auxiliares e gerar métricas e cobertura:
 

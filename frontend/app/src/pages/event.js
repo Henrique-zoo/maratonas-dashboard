@@ -4,10 +4,10 @@ import {
   escapeHtml,
   formatDate,
   formatNumber,
-  renderBarList,
   renderChip,
   renderMetricStrip,
   renderPageIntro,
+  renderParticipationChart,
   renderStatGrid,
   serialiseQuery,
 } from '../lib/ui.js';
@@ -118,13 +118,13 @@ export async function render({ params, query, navigate }) {
         </div>
         ${
           selectedLocationType
-            ? renderBarList(
+            ? renderParticipationChart(
                 locationStats.map((item) => ({
                   label: item.name,
-                  value: item.total_teams,
-                  subtitle: `${formatNumber(item.total_participants)} participants`,
+                  total: item.total_participants,
+                  highlighted: item.female_participants,
+                  context: `${formatNumber(item.total_teams)} teams`,
                 })),
-                { valueFormatter: formatNumber },
               )
             : '<p class="card-note">No participant location level is available for this event.</p>'
         }

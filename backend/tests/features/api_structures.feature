@@ -1,227 +1,114 @@
 Feature: Hierarchical structures, snapshots, and annual views
   General structures expose recent snapshots and preserve available years.
   Selecting an institution or team should retrieve its complete portfolio,
-  while annual routes apply explicit year scopes.
-
-  Background:
-    Given the backend API is running with an isolated database
-    And the deterministic BDD fixture is loaded
+  while annual views apply explicit year scopes.
 
   Scenario: Get an organizer's competition snapshot
-    When I request GET "/organizers/structures?organizer_ids=1"
-    Then the response status should be 200
-    And the JSON array at "$" should have length 1
-    And the JSON value at "/0/name" should be "Algorithm League"
-    And the JSON array at "/0/competitions" should have length 2
-    And the values of field "name" in the JSON array at "/0/competitions" should be:
-      | Global Algorithm Cup |
-      | Regional Code League |
-    And the JSON value at "/0/competitions/0/snapshot_year" should be 2025
-    And the JSON array at "/0/competitions/0/years" should have length 3
-    And the JSON value at "/0/competitions/0/years/0" should be 2023
-    And the JSON value at "/0/competitions/0/years/2" should be 2025
-    And the values of field "name" in the JSON array at "/0/competitions/0/events" should be:
-      | Algorithm Final    |
-      | Algorithm Regional |
-    And the JSON value at "/0/competitions/0/events/0/total_participants" should be 6
-    And the JSON value at "/0/competitions/0/events/0/female_participants" should be 3
-    And the JSON value at "/0/competitions/0/events/1/total_participants" should be 4
-    And the JSON value at "/0/competitions/0/events/1/female_participants" should be 3
-    And the JSON value at "/0/competitions/1/snapshot_year" should be 2026
-    And the JSON array at "/0/competitions/1/years" should have length 2
-    And the JSON value at "/0/competitions/1/years/0" should be 2024
-    And the JSON value at "/0/competitions/1/years/1" should be 2026
+    When I request organizer 1's current competition overview
+    Then the organizer overview should contain:
+      | organizer        | competition          | snapshot year | year count | first year | last year |
+      | Algorithm League | Global Algorithm Cup | 2025          | 3          | 2023       | 2025      |
+      | Algorithm League | Regional Code League | 2026          | 2          | 2024       | 2026      |
+    And "Global Algorithm Cup" should summarize these events:
+      | event              | participants | female participants |
+      | Algorithm Final    | 6            | 3                   |
+      | Algorithm Regional | 4            | 3                   |
 
   Scenario: Return an empty structure for an organizer with no results
-    When I request GET "/organizers/structures?organizer_ids=3"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      []
-      """
+    When I request organizer 3's current competition overview
+    Then no organizer overview should be returned
 
   Scenario: Get the annual aggregate view of a competition within the organizer domain
-    When I request GET "/organizers/competitions/10/structure?year=2024"
-    Then the response status should be 200
-    And the JSON array at "/events" should have length 2
-    And the values of field "name" in the JSON array at "/events" should be:
-      | Algorithm Final    |
-      | Algorithm Regional |
-    And the JSON value at "/events/0/date" should be "2024-09-10"
-    And the JSON value at "/events/1/date" should be "2024-06-01"
-    And the JSON value at "/events/0/total_participants" should be 8
-    And the JSON value at "/events/0/female_participants" should be 4
-    And the JSON value at "/events/1/total_participants" should be 4
-    And the JSON value at "/events/1/female_participants" should be 1
+    When I request competition 10's organizer overview for 2024
+    Then the annual event overview should be:
+      | event              | date       | participants | female participants |
+      | Algorithm Final    | 2024-09-10 | 8            | 4                   |
+      | Algorithm Regional | 2024-06-01 | 4            | 1                   |
 
   Scenario: Return an empty annual aggregate view when there are no events
-    When I request GET "/organizers/competitions/10/structure?year=1999"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      {"location_types": [], "events": []}
-      """
+    When I request competition 10's organizer overview for 1999
+    Then the annual overview should contain no location types or events
 
   Scenario: Get the detailed snapshot of a competition's latest year
-    When I request GET "/competitions/structures?competition_ids=10"
-    Then the response status should be 200
-    And the JSON array at "$" should have length 1
-    And the JSON value at "/0/name" should be "Global Algorithm Cup"
-    And the JSON value at "/0/snapshot_year" should be 2025
-    And the JSON array at "/0/years" should have length 3
-    And the JSON value at "/0/years/0" should be 2023
-    And the JSON value at "/0/years/2" should be 2025
-    And the values of field "name" in the JSON array at "/0/events" should be:
-      | Algorithm Final    |
-      | Algorithm Regional |
-    And the values of field "name" in the JSON array at "/0/events/0/teams" should be:
-      | Alpha Coders |
-      | Beta Stack   |
-      | Alpha Bytes  |
-    And the values of field "name" in the JSON array at "/0/events/1/teams" should be:
-      | Alpha Bytes |
-      | Gamma Graph |
+    When I request competition 10's latest detailed view
+    Then the competition view should describe:
+      | competition          | snapshot year | year count | first year | last year |
+      | Global Algorithm Cup | 2025          | 3          | 2023       | 2025      |
+    And the competition events should contain these teams, in order:
+      | event              | teams                                   |
+      | Algorithm Final    | Alpha Coders; Beta Stack; Alpha Bytes   |
+      | Algorithm Regional | Alpha Bytes; Gamma Graph                |
 
   Scenario: Return an empty structure for a competition with no results
-    When I request GET "/competitions/structures?competition_ids=40"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      []
-      """
+    When I request competition 40's latest detailed view
+    Then no competition view should be returned
 
   Scenario: Get a competition's detailed structure for an explicit year
-    When I request GET "/competitions/10/structure?year=2024"
-    Then the response status should be 200
-    And the JSON array at "/events" should have length 2
-    And the values of field "name" in the JSON array at "/events" should be:
-      | Algorithm Final    |
-      | Algorithm Regional |
-    And the values of field "name" in the JSON array at "/events/0/teams" should be:
-      | Alpha Bytes  |
-      | Beta Stack   |
-      | Alpha Coders |
-      | Gamma Graph  |
-    And the values of field "name" in the JSON array at "/events/1/teams" should be:
-      | Beta Stack   |
-      | Alpha Coders |
+    When I request competition 10's detailed view for 2024
+    Then the competition events should contain these teams, in order:
+      | event              | teams                                                |
+      | Algorithm Final    | Alpha Bytes; Beta Stack; Alpha Coders; Gamma Graph   |
+      | Algorithm Regional | Beta Stack; Alpha Coders                             |
 
   Scenario: Return an empty annual structure when a competition has no events that year
-    When I request GET "/competitions/10/structure?year=1999"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      {"location_types": [], "events": []}
-      """
+    When I request competition 10's detailed view for 1999
+    Then the annual competition view should contain no location types or events
 
   Scenario: Retrieve an institution's complete portfolio
-    When I request GET "/institutions/structures?institution_ids=1"
-    Then the response status should be 200
-    And the JSON array at "$" should have length 1
-    And the JSON value at "/0/name" should be "Alpha University"
-    And the JSON array at "/0/competitions" should have length 2
-    And the values of field "name" in the JSON array at "/0/competitions" should be:
-      | Global Algorithm Cup |
-      | Regional Code League |
-    And the JSON value at "/0/competitions/0/snapshot_year" should be 2025
-    And the JSON array at "/0/competitions/0/years" should have length 3
-    And the values of field "name" in the JSON array at "/0/competitions/0/events" should be:
-      | Algorithm Final    |
-      | Algorithm Regional |
-    And the JSON value at "/0/competitions/1/snapshot_year" should be 2026
-    And the JSON array at "/0/competitions/1/years" should have length 2
-    And the values of field "name" in the JSON array at "/0/competitions/1/events" should be:
-      | Regional Final |
+    When I request institution 1's complete portfolio
+    Then the institution portfolio should contain:
+      | institution      | competition          | snapshot year | year count | events                                |
+      | Alpha University | Global Algorithm Cup | 2025          | 3          | Algorithm Final; Algorithm Regional   |
+      | Alpha University | Regional Code League | 2026          | 2          | Regional Final                        |
 
   Scenario: Return no structure for an institution with no participations
-    When I request GET "/institutions/structures?institution_ids=5"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      []
-      """
+    When I request institution 5's complete portfolio
+    Then no institution portfolio should be returned
 
   Scenario: Retrieve a team's complete portfolio
-    When I request GET "/teams/structures?team_ids=1"
-    Then the response status should be 200
-    And the JSON array at "$" should have length 1
-    And the JSON value at "/0/name" should be "Alpha Coders"
-    And the JSON array at "/0/competitions" should have length 2
-    And the values of field "name" in the JSON array at "/0/competitions" should be:
-      | Global Algorithm Cup |
-      | Regional Code League |
-    And the JSON value at "/0/competitions/0/snapshot_year" should be 2025
-    And the JSON array at "/0/competitions/0/years" should have length 3
-    And the values of field "name" in the JSON array at "/0/competitions/0/events" should be:
-      | Algorithm Final |
-    And the JSON value at "/0/competitions/1/snapshot_year" should be 2026
-    And the JSON array at "/0/competitions/1/years" should have length 2
-    And the values of field "name" in the JSON array at "/0/competitions/1/events" should be:
-      | Regional Final |
+    When I request team 1's complete portfolio
+    Then the team portfolio should contain:
+      | team         | competition          | snapshot year | year count | events          |
+      | Alpha Coders | Global Algorithm Cup | 2025          | 3          | Algorithm Final |
+      | Alpha Coders | Regional Code League | 2026          | 2          | Regional Final  |
 
   Scenario: Return no structure for a team with no participations
-    When I request GET "/teams/structures?team_ids=6"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      []
-      """
+    When I request team 6's complete portfolio
+    Then no team portfolio should be returned
 
   Scenario: Get a team's annual performance in a competition
-    When I request GET "/teams/1/competitions/10/structure?year=2024"
-    Then the response status should be 200
-    And the JSON value at "/total_members" should be 2
-    And the JSON value at "/female_participants" should be 1
-    And the JSON array at "/events" should have length 2
-    And the values of field "name" in the JSON array at "/events" should be:
-      | Algorithm Regional |
-      | Algorithm Final    |
-    And the JSON value at "/events/0/team_event_rank" should be 2
-    And the JSON value at "/events/1/team_event_rank" should be 3
+    When I request team 1's performance in competition 10 for 2024
+    Then the team performance should report 2 members and 1 female participant
+    And the event ranks should be:
+      | event              | rank |
+      | Algorithm Regional | 2    |
+      | Algorithm Final    | 3    |
 
   Scenario: Return empty annual performance when the team did not compete that year
-    When I request GET "/teams/1/competitions/10/structure?year=1999"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      {"total_members": 0, "female_participants": 0, "events": []}
-      """
+    When I request team 1's performance in competition 10 for 1999
+    Then the team performance should contain no members or events
 
   Scenario: Use the latest available year by default for an event structure
-    When I request GET "/events/100/structure"
-    Then the response status should be 200
-    And the JSON value at "/id" should be 100
-    And the JSON value at "/name" should be "Algorithm Final"
-    And the JSON value at "/competition/id" should be 10
-    And the JSON value at "/competition/name" should be "Global Algorithm Cup"
-    And the JSON value at "/year" should be 2025
-    And the JSON array at "/years" should have length 3
-    And the JSON value at "/years/0" should be 2023
-    And the JSON value at "/years/2" should be 2025
-    And the JSON array at "/instances" should have length 2
-    And the JSON value at "/instances/0/id" should be 1002
-    And the JSON value at "/instances/0/date" should be "2025-09-10"
-    And the JSON value at "/instances/1/id" should be 1003
-    And the JSON value at "/instances/1/date" should be "2025-09-11"
+    When I request event 100's current view
+    Then the event view should describe:
+      | event id | event           | competition id | competition          | selected year | year count | first year | last year |
+      | 100      | Algorithm Final | 10             | Global Algorithm Cup | 2025          | 3          | 2023       | 2025      |
+    And the event occurrences should be:
+      | id   | date       |
+      | 1002 | 2025-09-10 |
+      | 1003 | 2025-09-11 |
 
   Scenario: Honor the explicit year in an event structure
-    When I request GET "/events/100/structure?year=2024"
-    Then the response status should be 200
-    And the JSON value at "/year" should be 2024
-    And the JSON array at "/years" should have length 3
-    And the JSON array at "/instances" should have length 1
-    And the JSON value at "/instances/0/id" should be 1001
-    And the JSON value at "/instances/0/date" should be "2024-09-10"
+    When I request event 100's view for 2024
+    Then the event view should select 2024 from 3 available years
+    And the event occurrences should be:
+      | id   | date       |
+      | 1001 | 2024-09-10 |
 
   Scenario: Preserve an event instance even when no teams participated
-    When I request GET "/events/400/structure"
-    Then the response status should be 200
-    And the JSON value at "/name" should be "Unplayed Event"
-    And the JSON value at "/year" should be 2025
-    And the JSON array at "/location_types" should have length 0
-    And the JSON array at "/instances" should have length 1
-    And the JSON value at "/instances/0/id" should be 4000
+    When I request event 400's current view
+    Then the view should preserve the unplayed event "Unplayed Event" for 2025 as occurrence 4000 without location types
 
   Scenario: Report not found when an event has no instance in the requested year
-    When I request GET "/events/100/structure?year=1999"
-    Then the response status should be 404
+    When I request event 100's view for 1999
+    Then the event view should not be found

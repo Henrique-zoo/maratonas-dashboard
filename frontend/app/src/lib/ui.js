@@ -154,7 +154,10 @@ export function renderBarList(
           return `
             <article class="bar-row">
               <div class="bar-row__header">
-                <span>${escapeHtml(labelFormatter(item))}</span>
+                <span>
+                  ${escapeHtml(labelFormatter(item))}
+                  ${item.subtitle ? `<small>${escapeHtml(item.subtitle)}</small>` : ''}
+                </span>
                 <strong>${escapeHtml(valueFormatter(item.value))}</strong>
               </div>
               <div class="bar-track">
@@ -168,7 +171,118 @@ export function renderBarList(
   `;
 }
 
-export function renderLineChart(points = [], { yLabel = 'Average rank' } = {}) {
+function chartNumber(value) {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 2,
+  }).format(Number(value));
+}
+
+function finiteNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function linePath(points, xForIndex, yForValue, key) {
+  let started = false;
+
+  return points
+    .map((point, index) => {
+      const value = finiteNumber(point[key]);
+
+      if (value === null) {
+        started = false;
+        return null;
+      }
+
+      const command = started ? 'L' : 'M';
+      started = true;
+      return `${command} ${xForIndex(index)} ${yForValue(value)}`;
+    })
+    .filter(Boolean)
+    .join(' ');
+}
+
+export function renderParticipationChart(
+  items = [],
+  {
+    totalLabel = 'Participants',
+    highlightedLabel = 'Female participants',
+    remainderLabel = 'Remaining participants',
+  } = {},
+) {
+  if (!items.length) {
+    return renderEmptyState(
+      'No location data yet',
+      'Pick another season or location level to explore this slice.',
+    );
+  }
+
+  const normalizedItems = items.map((item) => {
+    const total = Math.max(0, finiteNumber(item.total) || 0);
+    const highlighted = Math.min(total, Math.max(0, finiteNumber(item.highlighted) || 0));
+
+    return { ...item, total, highlighted };
+  });
+  const maxTotal = Math.max(...normalizedItems.map((item) => item.total), 1);
+
+  return `
+    <figure class="participation-chart" aria-label="${escapeHtml(`${totalLabel} by location`)}">
+      <figcaption class="chart-legend">
+        <span class="chart-legend__item">
+          <span class="chart-legend__swatch chart-legend__swatch--highlighted"></span>
+          ${escapeHtml(highlightedLabel)}
+        </span>
+        <span class="chart-legend__item">
+          <span class="chart-legend__swatch chart-legend__swatch--remainder"></span>
+          ${escapeHtml(remainderLabel)}
+        </span>
+      </figcaption>
+      <div class="participation-chart__rows">
+        ${normalizedItems
+          .map((item) => {
+            const totalWidth = (item.total / maxTotal) * 100;
+            const highlightedWidth = item.total ? (item.highlighted / item.total) * 100 : 0;
+            const remainderWidth = 100 - highlightedWidth;
+            const context = item.context ? ` · ${item.context}` : '';
+            const accessibleLabel = `${item.label}: ${chartNumber(item.total)} ${totalLabel.toLowerCase()}, ${chartNumber(item.highlighted)} ${highlightedLabel.toLowerCase()}${context}`;
+
+            return `
+              <div class="participation-chart__row">
+                <div class="participation-chart__header">
+                  <span>
+                    <strong>${escapeHtml(item.label)}</strong>
+                    ${item.context ? `<small>${escapeHtml(item.context)}</small>` : ''}
+                  </span>
+                  <span>${escapeHtml(chartNumber(item.total))}</span>
+                </div>
+                <div class="participation-chart__track" role="img" aria-label="${escapeHtml(accessibleLabel)}">
+                  <span class="participation-chart__total" style="width: ${totalWidth.toFixed(2)}%">
+                    <span class="participation-chart__highlighted" style="width: ${highlightedWidth.toFixed(2)}%"></span>
+                    <span class="participation-chart__remainder" style="width: ${remainderWidth.toFixed(2)}%"></span>
+                  </span>
+                </div>
+              </div>
+            `;
+          })
+          .join('')}
+      </div>
+    </figure>
+  `;
+}
+
+export function renderLineChart(
+  points = [],
+  {
+    yLabel = 'Value',
+    series = [{ key: 'value', label: yLabel }],
+    reverseY = false,
+    includeZero = false,
+  } = {},
+) {
   if (!points.length) {
     return renderEmptyState(
       'No trend available',
@@ -176,52 +290,148 @@ export function renderLineChart(points = [], { yLabel = 'Average rank' } = {}) {
     );
   }
 
+  const normalizedSeries = series
+    .map((item, index) => ({
+      key: item.key,
+      label: item.label || item.key,
+      index,
+    }))
+    .filter((item) => points.some((point) => finiteNumber(point[item.key]) !== null));
+
+  if (!normalizedSeries.length) {
+    return renderEmptyState(
+      'No trend available',
+      'This entity has no numeric samples for the selected event window.',
+    );
+  }
+
   if (points.length === 1) {
     return `
       <div class="single-point">
         <strong>${escapeHtml(String(points[0].label))}</strong>
-        <span>${escapeHtml(`${yLabel}: ${points[0].value.toFixed(2)}`)}</span>
+        ${normalizedSeries
+          .map((item) => `<span>${escapeHtml(`${item.label}: ${chartNumber(points[0][item.key])}`)}</span>`)
+          .join('')}
       </div>
     `;
   }
 
-  const width = 560;
-  const height = 220;
-  const padding = 28;
-  const values = points.map((point) => Number(point.value));
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
+  const width = 680;
+  const height = 320;
+  const margin = { top: 34, right: 24, bottom: 54, left: 64 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const values = normalizedSeries.flatMap((item) =>
+    points.map((point) => finiteNumber(point[item.key])).filter((value) => value !== null),
+  );
+  let min = Math.min(...values);
+  let max = Math.max(...values);
 
-  const path = points
-    .map((point, index) => {
-      const x = padding + (index * (width - padding * 2)) / (points.length - 1);
-      const y = height - padding - ((point.value - min) / span) * (height - padding * 2);
-      return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
-    })
-    .join(' ');
+  if (includeZero) {
+    min = Math.min(0, min);
+    max = Math.max(0, max);
+  }
 
-  const dots = points
-    .map((point, index) => {
-      const x = padding + (index * (width - padding * 2)) / (points.length - 1);
-      const y = height - padding - ((point.value - min) / span) * (height - padding * 2);
+  if (reverseY && min > 1) {
+    min = 1;
+  }
 
+  if (min === max) {
+    const padding = Math.max(Math.abs(min) * 0.1, 1);
+    min = Math.max(reverseY ? 1 : 0, min - padding);
+    max += padding;
+  }
+
+  const span = max - min;
+  const xForIndex = (index) => margin.left + (index * plotWidth) / (points.length - 1);
+  const yForValue = (value) => {
+    const ratio = (value - min) / span;
+    return reverseY ? margin.top + ratio * plotHeight : margin.top + (1 - ratio) * plotHeight;
+  };
+  const tickCount = 5;
+  const ticks = Array.from({ length: tickCount }, (_, index) => min + (span * index) / (tickCount - 1));
+  const grid = ticks
+    .map((value) => {
+      const y = yForValue(value);
       return `
-        <g>
-          <circle cx="${x}" cy="${y}" r="5"></circle>
-          <text x="${x}" y="${height - 6}" text-anchor="middle">${escapeHtml(String(point.label))}</text>
-        </g>
+        <line class="line-chart__grid" x1="${margin.left}" x2="${width - margin.right}" y1="${y}" y2="${y}"></line>
+        <text class="line-chart__tick" x="${margin.left - 12}" y="${y + 4}" text-anchor="end">${escapeHtml(chartNumber(value))}</text>
       `;
     })
     .join('');
+  const xLabels = points
+    .map(
+      (point, index) =>
+        `<text class="line-chart__tick" x="${xForIndex(index)}" y="${height - 20}" text-anchor="middle">${escapeHtml(String(point.label))}</text>`,
+    )
+    .join('');
+  const plottedSeries = normalizedSeries
+    .map((item) => {
+      const path = linePath(points, xForIndex, yForValue, item.key);
+      const dots = points
+        .map((point, pointIndex) => {
+          const value = finiteNumber(point[item.key]);
+
+          if (value === null) {
+            return '';
+          }
+
+          const x = xForIndex(pointIndex);
+          const y = yForValue(value);
+          const valueLabelY = y + (item.index % 2 === 0 ? -11 : 18);
+          const pointLabel = `${point.label}, ${item.label}: ${chartNumber(value)}`;
+
+          return `
+            <g class="line-chart__point line-chart__point--${item.index + 1}">
+              <circle cx="${x}" cy="${y}" r="5" tabindex="0" aria-label="${escapeHtml(pointLabel)}">
+                <title>${escapeHtml(pointLabel)}</title>
+              </circle>
+              <text class="line-chart__value" x="${x}" y="${valueLabelY}" text-anchor="middle">${escapeHtml(chartNumber(value))}</text>
+            </g>
+          `;
+        })
+        .join('');
+
+      return `
+        <path d="${path}" class="line-chart__path line-chart__path--${item.index + 1}"></path>
+        ${dots}
+      `;
+    })
+    .join('');
+  const description = normalizedSeries
+    .map(
+      (item) =>
+        `${item.label}: ${points
+          .map((point) => `${point.label} ${chartNumber(point[item.key])}`)
+          .join(', ')}`,
+    )
+    .join('. ');
 
   return `
-    <div class="line-chart">
-      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(yLabel)} line chart">
-        <path d="${path}" class="line-chart__path"></path>
-        ${dots}
+    <figure class="line-chart">
+      <figcaption class="chart-legend">
+        ${normalizedSeries
+          .map(
+            (item) => `
+              <span class="chart-legend__item">
+                <span class="chart-legend__swatch chart-legend__swatch--series-${item.index + 1}"></span>
+                ${escapeHtml(item.label)}
+              </span>
+            `,
+          )
+          .join('')}
+      </figcaption>
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(`${yLabel} over time`)}">
+        <title>${escapeHtml(`${yLabel} over time`)}</title>
+        <desc>${escapeHtml(description)}</desc>
+        ${grid}
+        <line class="line-chart__axis" x1="${margin.left}" x2="${margin.left}" y1="${margin.top}" y2="${height - margin.bottom}"></line>
+        <line class="line-chart__axis" x1="${margin.left}" x2="${width - margin.right}" y1="${height - margin.bottom}" y2="${height - margin.bottom}"></line>
+        <text class="line-chart__axis-title" transform="translate(18 ${margin.top + plotHeight / 2}) rotate(-90)" text-anchor="middle">${escapeHtml(yLabel)}</text>
+        ${xLabels}
+        ${plottedSeries}
       </svg>
-    </div>
+    </figure>
   `;
 }
 

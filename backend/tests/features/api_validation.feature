@@ -2,14 +2,10 @@ Feature: API HTTP contract validation
   Required parameters and malformed values should be rejected predictably,
   while missing events and missing years should remain distinguishable.
 
-  Background:
-    Given the backend API is running with an isolated database
-    And the deterministic BDD fixture is loaded
-
   Scenario Outline: Reject missing selections required by general structures
-    When I request GET "<path>"
-    Then the response should be a JSON error with status 400
-    And the response body should contain "<entity>"
+    When a client sends GET "<path>"
+    Then the response should expose only a public JSON error with status 400
+    And the public error message should mention "<entity>"
 
     Examples:
       | path                     | entity      |
@@ -19,9 +15,9 @@ Feature: API HTTP contract validation
       | /teams/structures        | team        |
 
   Scenario Outline: Require a year for annual structures
-    When I request GET "<path>"
-    Then the response should be a JSON error with status 400
-    And the response body should contain "year"
+    When a client sends GET "<path>"
+    Then the response should expose only a public JSON error with status 400
+    And the public error message should mention "year"
 
     Examples:
       | path                                |
@@ -30,9 +26,9 @@ Feature: API HTTP contract validation
       | /teams/1/competitions/10/structure     |
 
   Scenario Outline: Reject missing required analytics parameters
-    When I request GET "<path>"
-    Then the response should be a JSON error with status 400
-    And the response body should contain "<parameter>"
+    When a client sends GET "<path>"
+    Then the response should expose only a public JSON error with status 400
+    And the public error message should mention "<parameter>"
 
     Examples:
       | path                                                               | parameter     |
@@ -46,8 +42,8 @@ Feature: API HTTP contract validation
       | /institutions/1/events/100/performance?start_year=2023             | end year      |
 
   Scenario Outline: Reject malformed identifier lists
-    When I request GET "<path>"
-    Then the response should be a JSON error with status 400
+    When a client sends GET "<path>"
+    Then the response should expose only a public JSON error with status 400
 
     Examples:
       | path                                                        |
@@ -59,9 +55,9 @@ Feature: API HTTP contract validation
       | /teams/options?institution_ids=1,invalid                    |
       | /teams/structures?team_ids=1,invalid                        |
 
-  Scenario Outline: Reject malformed values outside lists
-    When I request GET "<path>"
-    Then the response should be a JSON error with status 400
+  Scenario Outline: Reject malformed scalar parameters
+    When a client sends GET "<path>"
+    Then the response should expose only a public JSON error with status 400
 
     Examples:
       | path                                                               |
@@ -71,10 +67,10 @@ Feature: API HTTP contract validation
       | /institutions/invalid/events/100/performance?start_year=2023&end_year=2025 |
 
   Scenario: Distinguish a nonexistent event from a year with no instance
-    When I request GET "/events/999/structure"
-    Then the response should be a JSON error with status 404
-    And the response body should contain "Event 999"
-    When I request GET "/events/100/structure?year=2022"
-    Then the response should be a JSON error with status 404
-    And the response body should contain "Event 100"
-    And the response body should contain "2022"
+    When a client sends GET "/events/999/structure"
+    Then the response should expose only a public JSON error with status 404
+    And the public error message should mention "Event 999"
+    When a client sends GET "/events/100/structure?year=2022"
+    Then the response should expose only a public JSON error with status 404
+    And the public error message should mention "Event 100"
+    And the public error message should mention "2022"

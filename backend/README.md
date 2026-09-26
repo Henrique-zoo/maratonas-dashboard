@@ -173,10 +173,13 @@ cargo test --test cucumber
 cargo run
 ```
 
-O teste `cucumber` exige que o Docker esteja disponível. Cada cenário cria um
-PostgreSQL 16 isolado, executa as migrations e substitui os dados de
-demonstração pela fixture determinística de `tests/fixtures/api_bdd.sql`. As
-requisições percorrem o `Router` Axum real em memória, sem abrir uma porta TCP.
+O teste `cucumber` exige que o Docker esteja disponível. A suíte inicia um único
+PostgreSQL 16, executa as migrations e carrega a fixture determinística de
+`tests/fixtures/api_bdd.sql` em uma base-modelo. Cenários apenas consultivos
+compartilham uma cópia protegida contra escrita; os cenários marcados com
+`@isolated_database`, que exercitam mutações e restrições, recebem uma base
+independente clonada do modelo. As requisições percorrem o `Router` Axum real em
+memória, sem abrir uma porta TCP.
 
 Se quiser validar o backend sem escrever artefatos em `target/` do projeto, é possível apontar o target para outro diretório:
 
@@ -747,6 +750,134 @@ geográfica, diferentes papéis de membros e contagens controladas. Isso mantém
 as expectativas legíveis e impede que alterações cosméticas nos dados de
 demonstração quebrem os cenários.
 
+### Infraestrutura Cucumber
+
+O alvo `cucumber`, declarado em `Cargo.toml` com `harness = false`, tem seu
+próprio ponto de entrada em [tests/cucumber.rs](tests/cucumber.rs). Ele coordena
+os bancos, os hooks e o resultado final da suíte. A biblioteca da aplicação é
+reutilizada para montar `routes::create_router().with_state(AppState::new(pool))`.
+
+| Componente | Responsabilidade |
+| --- | --- |
+| `ApiWorld` | Contexto de um cenário: banco, router, última resposta, resultados de mutações e filtros locais |
+| `DatabaseServer` | Mantém o container vivo e executa o encerramento da suíte |
+| `SuiteDatabase` | Compartilha pools, router de leitura, contador de nomes e mutex de clonagem entre hooks |
+| `TestDatabase` | Identifica o pool do cenário e o nome da base, quando isolada |
+| `TestResponse` | Guarda status e corpo UTF-8 da última resposta HTTP |
+| `TestDatabaseMutation` | Guarda sucesso, SQLSTATE e constraint das tentativas de mutação |
+| `HomeFilterContext` | Simula seleções, endereço e resumo dos filtros sobre dados carregados da API |
+
+#### Preparação e ciclo de vida
+
+1. `DatabaseServer::start` inicia um container `postgres:16-alpine` com porta
+   publicada dinamicamente. As credenciais são exclusivas da suíte; o runner
+   não lê `DATABASE_URL` nem acessa o banco do Compose.
+2. As migrations de `migrations/` são executadas na base
+   `md_stack_cucumber_template`, seguidas da fixture
+   [tests/fixtures/api_bdd.sql](tests/fixtures/api_bdd.sql).
+3. O pool do modelo é fechado. A base é marcada como template, clonada para
+   `md_stack_cucumber_shared` e configurada para não aceitar novas conexões.
+   A cópia compartilhada recebe `default_transaction_read_only = on`.
+4. O hook `before` associa o banco e o router ao `ApiWorld` de cada cenário.
+   Sem a tag de isolamento, clona handles do pool e router compartilhados.
+   Com `@isolated_database`, cria uma base `md_stack_cucumber_scenario_<n>`
+   a partir do modelo e monta um router com pool próprio.
+5. O runner permite até quatro cenários concorrentes. Nomes de bases isoladas
+   usam um contador atômico; um mutex serializa as clonagens do template.
+6. O hook `after` descarta o router e, no modo isolado, fecha o pool e remove
+   a base com `DROP DATABASE ... WITH (FORCE)`. No modo compartilhado, libera
+   apenas o handle local para preservar o pool dos outros cenários.
+7. Depois que o runner retorna, a suíte coleta as estatísticas, tenta remover
+   bases isoladas remanescentes, fecha os pools e para e remove o container.
+   Só então verifica os contadores de falha.
+
+A limpeza explícita ocorre depois do retorno do runner, inclusive quando ele
+registra falhas nos cenários. Falhas durante a própria inicialização ou limpeza
+podem interromper esse fluxo com panic. A limpeza de órfãos registra falhas
+individuais em stderr e continua tentando remover as outras bases.
+
+#### Isolamento e escolha da tag
+
+Use `@isolated_database` em qualquer cenário que prepare ou altere dados por
+SQL, inclusive nos `Given`s. A tag é reconhecida na feature, em uma `Rule` ou
+no cenário. Sua presença em qualquer desses níveis seleciona uma base gravável
+independente, com o mesmo estado inicial do template.
+
+Os cenários consultivos compartilham dados e possuem Worlds independentes.
+O modo somente leitura é configurado como padrão das transações da base e
+serve para detectar escritas acidentais; os steps não devem desativá-lo.
+A fixture comum deve continuar determinística. Dados exclusivos de um caso
+podem ser preparados nos steps usando o pool isolado do World.
+
+#### Requisições, filtros e constraints
+
+`ApiWorld::get` envia GET ao router com `oneshot`, incrementa `request_count`
+e armazena `TestResponse`. Assim, a suíte percorre as camadas reais do backend
+sem iniciar um listener HTTP. `get_json` também exige HTTP 200 e desserializa
+o corpo para o tipo solicitado.
+
+Os cenários de filtros carregam opções e portfólios reais pela API e depois
+manipulam `HomeFilterContext` em memória. Selecionar opções altera apenas esse
+contexto; aplicar filtros atualiza o endereço simulado. Os testes verificam a
+cascata e o portfólio completo da entidade selecionada, mas não executam o
+JavaScript nem validam a navegação no browser.
+
+Os steps de `membership_steps` exercitam constraints diretamente com SQL.
+Preparações exigem sucesso; tentativas de operações inválidas guardam o
+resultado em `TestDatabaseMutation` para comparação posterior do SQLSTATE e
+do nome da constraint. Testes de concorrência usam transações distintas,
+barreira e `tokio::join!`, mantendo os resultados na ordem definida pelo step.
+
+#### Organização dos steps
+
+| Arquivo em `tests/step_definitions/` | Papel |
+| --- | --- |
+| `mod.rs` | Registro dos módulos e comparação de tabelas de coluna única |
+| `organization_steps.rs` | Consultas aos endpoints analíticos e ações iniciais dos filtros |
+| `competition_steps.rs`, `institution_steps.rs`, `team_steps.rs` | Existência e seleção das entidades na cascata |
+| `domain_response_steps.rs` | Expectativas de domínio sobre opções, estatísticas, estruturas e históricos |
+| `api_steps.rs` | Contrato HTTP, DocStrings JSON e verificações por JSON Pointer |
+| `membership_steps.rs` | Elencos, participações, constraints e disputas concorrentes |
+
+Tabelas de coluna única são comparadas integralmente, sem cabeçalho especial.
+Tabelas de domínio com várias colunas validam a primeira linha como cabeçalho.
+Em ambos os casos, a ordem das linhas faz parte da expectativa. Ao criar um
+novo módulo de steps, declare-o em `tests/step_definitions/mod.rs` para que seus
+atributos `given`, `when` e `then` sejam registrados no alvo Cucumber.
+
+#### Execução e diagnóstico
+
+A partir do diretório `backend`, com o Docker em execução e a imagem PostgreSQL
+disponível localmente ou acessível para download:
+
+```bash
+cargo test --locked --test cucumber
+```
+
+Os arquivos são lidos de `tests/features`. Ao final, qualquer step com falha ou
+ignorado, erro de parsing ou erro de hook torna a execução malsucedida. Por
+isso, um step sem implementação não deve ser tratado como uma validação bem-sucedida.
+
+Para conferir a compilação do alvo sem iniciar containers:
+
+```bash
+cargo check --locked --test cucumber
+```
+
+A documentação interna do alvo de integração pode ser gerada separadamente.
+Compile a biblioteca primeiro e informe sua localização ao Rustdoc do teste:
+
+```bash
+cargo build --locked --lib
+cargo rustdoc --locked --test cucumber -- \
+  --document-private-items \
+  --extern "backend=${CARGO_TARGET_DIR:-target}/debug/libbackend.rlib"
+```
+
+O HTML fica em `target/doc/cucumber/index.html`, ou no diretório equivalente
+definido por `CARGO_TARGET_DIR`. Os comandos de cobertura da seção
+“Comandos Úteis” continuam disponíveis para medir a execução da suíte.
+
 ### Como os mocks funcionam
 
 Os traits usam:
@@ -813,6 +944,13 @@ Fluxo recomendado para adicionar um novo endpoint/caso de uso:
 7. implementar a query SQL no módulo correto de repository
 8. escrever testes unitários do service com `mockall`
 9. acrescentar ou atualizar o cenário Gherkin que descreve o contrato observável
+
+Nos arquivos `.feature`, descreva contexto, ação e resultado na linguagem do
+domínio e do usuário da API. Inicialização de contêineres, criação de bancos,
+migrations, fixtures, Router e outros detalhes do aparato de teste pertencem aos
+hooks e às step definitions, não aos cenários. Caminhos HTTP e códigos de status
+são apropriados somente quando o próprio contrato HTTP é o comportamento em
+especificação, como em `api_validation.feature`.
 
 ### Regra prática
 
