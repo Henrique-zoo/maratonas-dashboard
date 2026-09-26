@@ -13,6 +13,7 @@ import {
   renderLineChart,
   renderMetricStrip,
   renderPageIntro,
+  renderParticipationChart,
   renderStatGrid,
   renderTable,
   serialiseQuery,
@@ -78,6 +79,7 @@ describe('UI formatting and safe HTML rendering', () => {
 
   test('renders all line-chart cardinalities and escapes labels', () => {
     expect(renderLineChart([])).toContain('No trend available');
+    expect(renderLineChart([{ label: 2025, value: null }])).toContain('no numeric samples');
     expect(renderLineChart([{ label: '2025<script>', value: 2.5 }])).toContain('2025&lt;script&gt;');
 
     const chart = renderLineChart([
@@ -85,8 +87,50 @@ describe('UI formatting and safe HTML rendering', () => {
       { label: 2025, value: 1 },
     ]);
     expect(chart).toContain('role="img"');
-    expect(chart).toContain('M 28 28');
-    expect(chart).toContain('L 532 192');
+    expect(chart).toContain('Value over time');
+    expect(chart).toContain('line-chart__axis');
+    expect(chart).toContain('line-chart__value');
+    expect(chart).toContain('M 64 34');
+    expect(chart).toContain('L 656 266');
+  });
+
+  test('renders multiple series with an inverted rank axis and accessible points', () => {
+    const chart = renderLineChart(
+      [
+        { label: 2024, best: 8, average: 10.5 },
+        { label: 2025, best: 1, average: 4.25 },
+      ],
+      {
+        yLabel: 'Rank (lower is better)',
+        reverseY: true,
+        series: [
+          { key: 'best', label: 'Best rank' },
+          { key: 'average', label: 'Average rank' },
+        ],
+      },
+    );
+
+    expect(chart).toContain('Best rank');
+    expect(chart).toContain('Average rank');
+    expect(chart).toContain('line-chart__path--2');
+    expect(chart).toContain('aria-label="2025, Best rank: 1"');
+    expect(chart).toContain('<desc>Best rank: 2024 8, 2025 1. Average rank: 2024 10.5, 2025 4.25</desc>');
+  });
+
+  test('renders proportional participation bars and clamps highlighted totals', () => {
+    expect(renderParticipationChart([])).toContain('No location data yet');
+
+    const chart = renderParticipationChart([
+      { label: 'Brazil', total: 12, highlighted: 4, context: '3 teams' },
+      { label: '<Chile>', total: 6, highlighted: 9, context: '2 teams' },
+    ]);
+
+    expect(chart).toContain('Female participants');
+    expect(chart).toContain('Remaining participants');
+    expect(chart).toContain('width: 100.00%');
+    expect(chart).toContain('width: 50.00%');
+    expect(chart).toContain('&lt;Chile&gt;');
+    expect(chart).toContain('Chile&gt;: 6 participants, 6 female participants');
   });
 
   test('renders reusable cards and tables with escaped labels and explicit alignment', () => {

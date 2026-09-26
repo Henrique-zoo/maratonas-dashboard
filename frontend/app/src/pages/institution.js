@@ -127,9 +127,17 @@ export async function render({ params, query, navigate }) {
         ${renderLineChart(
           performance.map((point) => ({
             label: point.year,
-            value: point.average_performance_rank,
+            bestRank: point.best_performance_rank,
+            averageRank: point.average_performance_rank,
           })),
-          { yLabel: 'Average rank' },
+          {
+            yLabel: 'Rank (lower is better)',
+            reverseY: true,
+            series: [
+              { key: 'bestRank', label: 'Best rank' },
+              { key: 'averageRank', label: 'Average rank' },
+            ],
+          },
         )}
       </article>
 

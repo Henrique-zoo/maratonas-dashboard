@@ -10,11 +10,12 @@ import {
   escapeHtml,
   formatDate,
   formatNumber,
-  renderBarList,
   renderChip,
   renderEmptyState,
+  renderLineChart,
   renderMetricStrip,
   renderPageIntro,
+  renderParticipationChart,
   renderStatGrid,
   renderTable,
   serialiseQuery,
@@ -94,6 +95,17 @@ export async function render({ params, query, navigate }) {
   const locationChoices = rawLocationTypes.length ? rawLocationTypes : [fallbackLocationType];
   const selectedLocationType = query.locationType || fallbackLocationType;
   const locationStats = await getCompetitionLocationStats(competitionId, selectedLocationType, selectedYear);
+  const sortedYears = [...competition.years].map(Number).sort((left, right) => left - right);
+  const annualStats = await Promise.all(
+    sortedYears.map((year) =>
+      year === selectedYear ? Promise.resolve(stats) : getCompetitionStats(competitionId, year),
+    ),
+  );
+  const participationTrend = sortedYears.map((year, index) => ({
+    label: year,
+    participants: annualStats[index].total_participants,
+    femaleParticipants: annualStats[index].female_participants,
+  }));
 
   const html = `
     ${renderPageIntro({
@@ -163,23 +175,41 @@ export async function render({ params, query, navigate }) {
             <h2>${escapeHtml(selectedLocationType)} breakdown</h2>
           </div>
         </div>
-        ${renderBarList(
+        ${renderParticipationChart(
           locationStats.map((item) => ({
             label: item.name,
-            value: item.total_teams,
-            subtitle: `${formatNumber(item.total_participants)} participants`,
+            total: item.total_participants,
+            highlighted: item.female_participants,
+            context: `${formatNumber(item.total_teams)} teams`,
           })),
-          { valueFormatter: formatNumber },
         )}
       </article>
 
       <article class="panel">
         <div class="section-head">
           <div>
-            <span class="eyebrow">Year summary</span>
-            <h2>${selectedYear} events</h2>
+            <span class="eyebrow">Participation over time</span>
+            <h2>Annual participant totals</h2>
           </div>
         </div>
+        ${renderLineChart(participationTrend, {
+          yLabel: 'Distinct participants',
+          includeZero: true,
+          series: [
+            { key: 'participants', label: 'All participants' },
+            { key: 'femaleParticipants', label: 'Female participants' },
+          ],
+        })}
+      </article>
+    </section>
+
+    <section class="panel section-block">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Year summary</span>
+          <h2>${selectedYear} events</h2>
+        </div>
+      </div>
         ${renderMetricStrip([
           { label: 'Events', value: formatNumber(yearStructure.events.length) },
           { label: 'Available years', value: overview.yearSpan },
@@ -218,7 +248,6 @@ export async function render({ params, query, navigate }) {
                 'Try selecting another year from the filter bar above.',
               )
         }
-      </article>
     </section>
 
     <section class="section-block">
