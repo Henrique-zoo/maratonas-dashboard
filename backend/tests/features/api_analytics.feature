@@ -3,143 +3,54 @@ Feature: API analytics queries
   competitors without counting coaches, reserves, or the same contestant's
   repeated event registrations more than once per scope.
 
-  Background:
-    Given the backend API is running with an isolated database
-    And the deterministic BDD fixture is loaded
-
   Scenario: Aggregate annual statistics for a competition
-    When I request GET "/competitions/10/stats?year=2025"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      {
-        "total_institutions": 3,
-        "total_teams": 4,
-        "total_participants": 8,
-        "female_participants": 4
-      }
-      """
+    When I request competition 10 statistics for 2025
+    Then the competition statistics should be:
+      | institutions | teams | participants | female participants |
+      | 3            | 4     | 8            | 4                   |
 
   Scenario: Aggregate annual statistics for an event
-    When I request GET "/events/100/stats?year=2024"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      {
-        "total_institutions": 3,
-        "total_teams": 4,
-        "total_participants": 8,
-        "female_participants": 4
-      }
-      """
+    When I request event 100 statistics for 2024
+    Then the event statistics should be:
+      | institutions | teams | participants | female participants |
+      | 3            | 4     | 8            | 4                   |
 
   Scenario: Group competition statistics by country
-    When I request GET "/competitions/10/location-stats?location_type=Country&year=2025"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      [
-        {
-          "id": 3,
-          "name": "Argentina",
-          "total_institutions": 1,
-          "total_teams": 1,
-          "total_participants": 2,
-          "female_participants": 1
-        },
-        {
-          "id": 2,
-          "name": "Brazil",
-          "total_institutions": 2,
-          "total_teams": 3,
-          "total_participants": 6,
-          "female_participants": 3
-        }
-      ]
-      """
+    When I group competition 10 statistics by country for 2025
+    Then the country statistics should be:
+      | id | country   | institutions | teams | participants | female participants |
+      | 3  | Argentina | 1            | 1     | 2            | 1                   |
+      | 2  | Brazil    | 2            | 3     | 6            | 3                   |
 
   Scenario: Group event statistics by country
-    When I request GET "/events/100/location-stats?location_type=Country&year=2024"
-    Then the response status should be 200
-    And the JSON array at "$" should have length 2
-    And the values of field "name" in the JSON array at "$" should be:
-      | Argentina |
-      | Brazil    |
-    And the JSON value at "/0/total_teams" should be 1
-    And the JSON value at "/0/female_participants" should be 1
-    And the JSON value at "/1/total_teams" should be 3
-    And the JSON value at "/1/female_participants" should be 3
+    When I group event 100 statistics by country for 2024
+    Then the event country statistics should be:
+      | country   | teams | female participants |
+      | Argentina | 1     | 1                   |
+      | Brazil    | 3     | 3                   |
 
   Scenario: List historical events available to an institution
-    When I request GET "/institutions/1/events/options"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      [
-        {
-          "id": 100,
-          "name": "Algorithm Final",
-          "competition_id": 10,
-          "competition_name": "Global Algorithm Cup",
-          "years": [2023, 2024, 2025]
-        },
-        {
-          "id": 101,
-          "name": "Algorithm Regional",
-          "competition_id": 10,
-          "competition_name": "Global Algorithm Cup",
-          "years": [2024, 2025]
-        },
-        {
-          "id": 200,
-          "name": "Regional Final",
-          "competition_id": 20,
-          "competition_name": "Regional Code League",
-          "years": [2024, 2026]
-        }
-      ]
-      """
+    When I request the event history for institution 1
+    Then the available event histories should be:
+      | event id | event              | competition id | competition          | years            |
+      | 100      | Algorithm Final    | 10             | Global Algorithm Cup | 2023, 2024, 2025 |
+      | 101      | Algorithm Regional | 10             | Global Algorithm Cup | 2024, 2025       |
+      | 200      | Regional Final     | 20             | Regional Code League | 2024, 2026       |
 
   Scenario: Retrieve an institution's performance progression in an event
-    When I request GET "/institutions/1/events/100/performance?start_year=2023&end_year=2025"
-    Then the response status should be 200
-    And the response JSON should equal:
-      """
-      [
-        {
-          "year": 2023,
-          "best_performance_rank": 2,
-          "best_performance_team_id": 1,
-          "best_performance_team_name": "Alpha Coders",
-          "average_performance_rank": 2.0
-        },
-        {
-          "year": 2024,
-          "best_performance_rank": 1,
-          "best_performance_team_id": 2,
-          "best_performance_team_name": "Alpha Bytes",
-          "average_performance_rank": 2.0
-        },
-        {
-          "year": 2025,
-          "best_performance_rank": 1,
-          "best_performance_team_id": 1,
-          "best_performance_team_name": "Alpha Coders",
-          "average_performance_rank": 2.0
-        }
-      ]
-      """
+    When I request institution 1's performance in event 100 from 2023 through 2025
+    Then the performance history should be:
+      | year | best rank | best team id | best team    | average rank |
+      | 2023 | 2         | 1            | Alpha Coders | 2.0          |
+      | 2024 | 1         | 2            | Alpha Bytes  | 2.0          |
+      | 2025 | 1         | 1            | Alpha Coders | 2.0          |
 
   Scenario: Return empty collections when no data exists for a valid scope
-    When I request GET "/institutions/5/events/options"
-    Then the response status should be 200
-    And the response JSON should be an empty array
-    When I request GET "/institutions/1/events/100/performance?start_year=2020&end_year=2022"
-    Then the response status should be 200
-    And the response JSON should be an empty array
-    When I request GET "/competitions/40/location-stats?location_type=Country&year=2025"
-    Then the response status should be 200
-    And the response JSON should be an empty array
-    When I request GET "/events/400/location-stats?location_type=Country&year=2025"
-    Then the response status should be 200
-    And the response JSON should be an empty array
+    When I request the event history for institution 5
+    Then no event history should be returned
+    When I request institution 1's performance in event 100 from 2020 through 2022
+    Then no performance history should be returned
+    When I group competition 40 statistics by country for 2025
+    Then no location statistics should be returned
+    When I group event 400 statistics by country for 2025
+    Then no location statistics should be returned

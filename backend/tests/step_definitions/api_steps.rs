@@ -1,3 +1,23 @@
+//! # `cucumber::step_definitions::api_steps`
+//!
+//! ## Responsabilidade
+//! Valida contratos HTTP e estruturas JSON descritos explicitamente nos cenários.
+//!
+//! ## Lógica de Implementação
+//! Lê a última resposta do World e compara status, DocStrings, JSON Pointers,
+//! campos escalares e tabelas ordenadas. Os helpers de JSON não exigem HTTP 200;
+//! o step de erro valida o status esperado e a forma pública `{"error": "..."}`.
+//! Resposta ausente, formato inesperado ou comparação divergente produzem panic
+//! com contexto do payload para o relatório do Cucumber.
+//!
+//! ## Funções
+//! - `response_body`, `response_json`: acesso à resposta capturada.
+//! - `value_at_pointer`, `array_at_pointer`, `projected_value`: navegação e projeção.
+//! - Steps `response_*`: verificações reutilizadas pelos cenários de contrato.
+//!
+//! ## Tipos
+//! Reutiliza `ApiWorld`, `Step` e `serde_json::Value`.
+
 use cucumber::{gherkin::Step, then};
 use serde_json::Value;
 
@@ -5,6 +25,10 @@ use crate::ApiWorld;
 
 use super::single_column_table;
 
+/// Obtém o corpo da última resposta HTTP armazenada no World.
+///
+/// # Erros
+/// Dispara panic se nenhum helper de requisição tiver capturado uma resposta.
 fn response_body(world: &ApiWorld) -> &str {
     &world
         .last_response
@@ -13,6 +37,13 @@ fn response_body(world: &ApiWorld) -> &str {
         .body
 }
 
+/// Desserializa o corpo da última resposta sem impor um status HTTP.
+///
+/// # Retorno
+/// Valor JSON usado pelas verificações genéricas do contrato.
+///
+/// # Erros
+/// Dispara panic se a resposta estiver ausente ou o corpo não for JSON válido.
 fn response_json(world: &ApiWorld) -> Value {
     let body = response_body(world);
 
@@ -21,6 +52,7 @@ fn response_json(world: &ApiWorld) -> Value {
     })
 }
 
+/// Valida o status informado e um objeto JSON contendo somente o campo textual `error`.
 #[then(expr = "the response should be a JSON error with status {int}")]
 fn response_should_be_json_error(world: &mut ApiWorld, expected_status: u16) {
     let response = world
@@ -46,6 +78,9 @@ fn response_should_be_json_error(world: &mut ApiWorld, expected_status: u16) {
     );
 }
 
+/// Converte `$` para a raiz vazia e `$/...` para um JSON Pointer `/...`.
+///
+/// Demais entradas são preservadas; a validação do formato ocorre em `value_at_pointer`.
 fn normalize_pointer(pointer: &str) -> &str {
     match pointer {
         "$" => "",
@@ -54,6 +89,17 @@ fn normalize_pointer(pointer: &str) -> &str {
     }
 }
 
+/// Resolve um JSON Pointer no payload, aceitando `$` como raiz.
+///
+/// # Parâmetros
+/// - `payload`: JSON cuja estrutura será inspecionada.
+/// - `pointer`: caminho vazio, `$`, `/...` ou `$/...`.
+///
+/// # Retorno
+/// Referência ao valor localizado, sem copiar o payload.
+///
+/// # Erros
+/// Dispara panic se o caminho for inválido ou não existir, incluindo o payload no diagnóstico.
 fn value_at_pointer<'a>(payload: &'a Value, pointer: &str) -> &'a Value {
     let normalized = normalize_pointer(pointer);
 
@@ -67,6 +113,10 @@ fn value_at_pointer<'a>(payload: &'a Value, pointer: &str) -> &'a Value {
     })
 }
 
+/// Resolve um caminho e exige que o valor encontrado seja um array.
+///
+/// # Erros
+/// Dispara panic em caminho inválido, ausente ou com outro tipo JSON.
 fn array_at_pointer<'a>(payload: &'a Value, pointer: &str) -> &'a [Value] {
     let value = value_at_pointer(payload, pointer);
 
@@ -77,6 +127,19 @@ fn array_at_pointer<'a>(payload: &'a Value, pointer: &str) -> &'a [Value] {
     })
 }
 
+/// Converte um campo escalar de um item de array para comparação com tabelas.
+///
+/// # Parâmetros
+/// - `value`: item que deve conter o campo.
+/// - `field`: nome do campo projetado.
+/// - `index`: posição do item, incluída no diagnóstico.
+/// - `payload`: resposta completa, incluída no diagnóstico.
+///
+/// # Retorno
+/// Texto sem aspas para strings; representação JSON para números, booleanos e null.
+///
+/// # Erros
+/// Dispara panic em campo ausente, array ou objeto aninhado.
 fn projected_value(value: &Value, field: &str, index: usize, payload: &Value) -> String {
     let projected = value.get(field).unwrap_or_else(|| {
         panic!("array item {index} has no field {field:?}; item: {value}; response JSON: {payload}")
@@ -91,6 +154,10 @@ fn projected_value(value: &Value, field: &str, index: usize, payload: &Value) ->
     }
 }
 
+/// Compara o JSON completo com a DocString do step.
+///
+/// A comparação é estrutural: preserva a ordem de arrays e ignora a formatação
+/// textual. DocString ausente ou JSON inválido fazem o step falhar.
 #[then("the response JSON should equal:")]
 fn response_json_should_equal(world: &mut ApiWorld, #[step] step: &Step) {
     let expected_source = step
@@ -107,6 +174,7 @@ fn response_json_should_equal(world: &mut ApiWorld, #[step] step: &Step) {
     );
 }
 
+/// Exige um inteiro igual ao esperado no JSON Pointer informado.
 #[then(regex = r#"^the JSON value at "([^"]+)" should be (-?\d+)$"#)]
 fn response_json_integer_at_pointer(world: &mut ApiWorld, pointer: String, expected: i64) {
     let payload = response_json(world);
@@ -119,6 +187,7 @@ fn response_json_integer_at_pointer(world: &mut ApiWorld, pointer: String, expec
     );
 }
 
+/// Exige uma string igual à esperada no JSON Pointer informado.
 #[then(regex = r#"^the JSON value at "([^"]+)" should be "([^"]*)"$"#)]
 fn response_json_string_at_pointer(world: &mut ApiWorld, pointer: String, expected: String) {
     let payload = response_json(world);
@@ -131,6 +200,7 @@ fn response_json_string_at_pointer(world: &mut ApiWorld, pointer: String, expect
     );
 }
 
+/// Exige o tamanho informado para o array no JSON Pointer indicado.
 #[then(regex = r#"^the JSON array at "([^"]+)" should have length (\d+)$"#)]
 fn response_json_array_should_have_length(world: &mut ApiWorld, pointer: String, expected: usize) {
     let payload = response_json(world);
@@ -144,6 +214,10 @@ fn response_json_array_should_have_length(world: &mut ApiWorld, pointer: String,
     );
 }
 
+/// Projeta um campo de cada item do array e compara os valores na ordem recebida.
+///
+/// O step fornece uma tabela de coluna única, sem cabeçalho. Usa `projected_value`
+/// para converter escalares e rejeitar objetos ou arrays aninhados.
 #[then(regex = r#"^the values of field "([^"]+)" in the JSON array at "([^"]+)" should be:$"#)]
 fn response_json_array_field_values_should_equal(
     world: &mut ApiWorld,
@@ -165,6 +239,7 @@ fn response_json_array_field_values_should_equal(
     );
 }
 
+/// Verifica a presença literal e sensível a maiúsculas do trecho informado no corpo HTTP.
 #[then(regex = r#"^the response body should contain "([^"]*)"$"#)]
 fn response_body_should_contain(world: &mut ApiWorld, expected: String) {
     let body = response_body(world);
@@ -175,6 +250,7 @@ fn response_body_should_contain(world: &mut ApiWorld, expected: String) {
     );
 }
 
+/// Exige que a raiz do corpo JSON seja um array vazio.
 #[then("the response JSON should be an empty array")]
 fn response_json_should_be_empty_array(world: &mut ApiWorld) {
     let payload = response_json(world);
