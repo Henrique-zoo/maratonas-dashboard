@@ -29,9 +29,9 @@ async fn main() -> anyhow::Result<()> {
         VarError::NotPresent => anyhow::anyhow!(e).context(
             "DATABASE_URL is not set or contains invalid characters ('=' or '\\0') in its name.",
         ),
-        VarError::NotUnicode(_) => anyhow::anyhow!(e).context(
-            "DATABASE_URL contains an invalid UTF-8 value."
-        ),
+        VarError::NotUnicode(_) => {
+            anyhow::anyhow!(e).context("DATABASE_URL contains an invalid UTF-8 value.")
+        }
     })?;
 
     let pool = PgPoolOptions::new()
